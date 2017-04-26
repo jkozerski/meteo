@@ -15,10 +15,10 @@ Used Arduino ports:
 +------+-------------------+-------------------------------+
 |   2  |            DHT22  | Temp & Humid sensor           |
 |   3  |       temp in IND | PWN - temp in indicator       |
-|   4  |  low pressure LED |                               |
 |   5  |      humid in IND | PWN - humid in indicator      |
 |   6  |      pressure IND | PWM - air pressure indicator  |
-|   7  | high pressure LED |                               |
+|   8  |  low pressure LED |                               |
+|   9  | high pressure LED |                               |
 +------+-------------------+-------------------------------+
 |  A5  |      BMP180 (SCL) | Air pressure sensor (SCL)     |
 |  A4  |      BMP180 (SDA) | Air pressure sensor (SDA)     |
@@ -33,8 +33,8 @@ Used Arduino ports:
 
 // LEDs
 #define DEBUG_LED          13
-#define LOW_PRESSURE_LED   4
-#define HIGH_PRESSURE_LED  7
+#define LOW_PRESSURE_LED   8
+#define HIGH_PRESSURE_LED  9
 
 
 // INDICATORS (need PWM)
@@ -82,7 +82,7 @@ void setup ()
     digitalWrite(LOW_PRESSURE_LED,  HIGH);
     digitalWrite(HIGH_PRESSURE_LED, HIGH);
     int tab[]       = {IND_TEMP_IN, IND_HUMID_IN, IND_PRESSURE, -1};
-    int tab_calib[] = {calib_max_temp, calib_max_humid, calib_max_press, -1}
+    int tab_calib[] = {calib_max_temp, calib_max_humid, calib_max_press, -1};
     diagnostic_setup(tab, tab_calib);
     digitalWrite(LOW_PRESSURE_LED,  LOW);
     digitalWrite(HIGH_PRESSURE_LED, LOW);
