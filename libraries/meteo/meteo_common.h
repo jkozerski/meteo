@@ -98,7 +98,7 @@ ports[] : Table of PWM ports to run diagnostic setup.
           int posts[] = {3, 5, 6, -1}
           int posts[] = {10, -1}
 */
-void diagnostic_setup (int ports[])
+void diagnostic_setup(int ports[], int calib[])
 {
     int i;
     const int dt  = 4000/255; // delay time = 4[s] / 255[steps]
@@ -108,7 +108,8 @@ void diagnostic_setup (int ports[])
     for (i = 0; i < 256; i++) {
         j = 0;
         while (ports[j] > -1) {
-            analogWrite(ports[j], i);
+            if (calib[j] >= i)
+                analogWrite(ports[j], i);
             j++;
         }
         delay(dt);
@@ -117,28 +118,28 @@ void diagnostic_setup (int ports[])
 
     j = 0;
     while (ports[j] > -1) {
-        analogWrite(ports[j], 255 * 2/3);
+        analogWrite(ports[j], calib[j] * 2/3);
         j++;
     }
     delay(dt2);
 
     j = 0;
     while (ports[j] > -1) {
-        analogWrite(ports[j], 255 * 1/2);
+        analogWrite(ports[j], calib[j] * 1/2);
         j++;
     }
     delay(dt2);
 
     j = 0;
     while (ports[j] > -1) {
-        analogWrite(ports[j], 255 * 1/3);
+        analogWrite(ports[j], calib[j] * 1/3);
         j++;
     }
     delay(dt2);
 
     j = 0;
     while (ports[j] > -1) {
-        analogWrite(ports[j], 255 * 0);
+        analogWrite(ports[j], 0);
         j++;
     }
     delay(dt2);

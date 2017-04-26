@@ -81,8 +81,9 @@ void setup ()
     //diagnostic setup
     digitalWrite(LOW_PRESSURE_LED,  HIGH);
     digitalWrite(HIGH_PRESSURE_LED, HIGH);
-    int tab[] = {IND_TEMP_IN, IND_HUMID_IN, IND_PRESSURE, -1};
-    diagnostic_setup(tab);
+    int tab[]       = {IND_TEMP_IN, IND_HUMID_IN, IND_PRESSURE, -1};
+    int tab_calib[] = {calib_max_temp, calib_max_humid, calib_max_press, -1}
+    diagnostic_setup(tab, tab_calib);
     digitalWrite(LOW_PRESSURE_LED,  LOW);
     digitalWrite(HIGH_PRESSURE_LED, LOW);
 
