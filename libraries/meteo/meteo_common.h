@@ -18,7 +18,7 @@ Temperature [*C] in:
 Temperature [*C] out:
     -30 : 0 / 0 : 30 / 30 : 60
 Pressure [hPa]:
-    960 : 1010 / 1010 : 1060
+    960 : 990 / 990 : 1020 / 1020 : 1050
 Humidity (relative) [%] in/out:
     0 : 100
 */
