@@ -14,7 +14,7 @@ Used Arduino ports:
 |   3  |      temp out IND | PWM - temp out indicator      |
 |   4  |  low temp out LED |                               |
 |   5  |     humid out IND | PWM - humid out indicator     |
-|   7  | high temp out LED |                               |
+|   6  | high temp out LED |                               |
 |   8  |   433MHz receiver |                               |
 +------+-------------------+-------------------------------+
 | *GND |           5 x GND | 2xLED, 2xIND, 433MHz rec.     |
@@ -27,7 +27,7 @@ Used Arduino ports:
 
 // LEDs
 #define LOW_TEMP_OUT_LED   4
-#define HIGH_TEMP_OUT_LED  7
+#define HIGH_TEMP_OUT_LED  6
 
 
 // INDICATORS (need PWM)
@@ -110,7 +110,7 @@ void loop ()
         LOGLN("Error while receiving data");
         error_blink(3);
 
-        if (out_last_count > last_count_max) { // remote connection lost set vales to 0
+        if (out_last_count > last_count_max) { // remote connection lost set values to 0
             LOGLN("Connection lost, reset remote data");
             temp_out = 0.0;
             humid_out = 0.0;

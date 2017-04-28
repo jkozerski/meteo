@@ -38,6 +38,12 @@ const long pressure_1   =  99000; // [Pa]
 const long pressure_2   = 102000; // [Pa]
 const long pressure_max = 105000; // [Pa]
 
+
+/* sleep delay */
+const int delay_time = 5000; // [ms] Read values every 5s.
+
+
+// ##### MAP #####
 /* Map values to indicators */
 long ind_map (long val, long val_min, long val_max)
 {
@@ -67,9 +73,7 @@ long ind_map10_cal(float val, float val_min, float val_max, int cal_max)
 };
 
 
-/* sleep delay */
-const int delay_time = 5000; // [ms] Read values every 5s.
-
+// ##### BLINK #####
 /* Blinks c times with debug LED.
    Used to notify about errors */
 void error_blink (int c = 3)
@@ -85,6 +89,8 @@ void error_blink (int c = 3)
     }
 }
 
+
+// ##### SETUP #####
 /*
 Function just wave PWM duty cycle from 0 -> 100% on provided pins, to check
 if indicators are working properly. This should take ~4s.
