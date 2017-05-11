@@ -1,6 +1,6 @@
 // Uncomment define DEBUG line to build with debug logs (on serial)
 // This line MUST be before meteo_common.h include to make any effect
-//#define DEBUG
+#define DEBUG
 
 #include <VirtualWire.h> // 433MHz receiver. This library will disable PWM on pins 9 and 10.
 #include <meteo_common.h> // Common function for meteo
@@ -12,9 +12,9 @@ Used Arduino ports:
 | Port |       Purpose     | Desc.                         |
 +------+-------------------+-------------------------------+
 |   3  |      temp out IND | PWM - temp out indicator      |
-|   4  |  low temp out LED |                               |
 |   5  |     humid out IND | PWM - humid out indicator     |
-|   6  | high temp out LED |                               |
+|   6  |  low temp out LED |                               |
+|   7  | high temp out LED |                               |
 |   8  |   433MHz receiver |                               |
 +------+-------------------+-------------------------------+
 | *GND |           5 x GND | 2xLED, 2xIND, 433MHz rec.     |
@@ -26,8 +26,8 @@ Used Arduino ports:
 
 
 // LEDs
-#define LOW_TEMP_OUT_LED   4
-#define HIGH_TEMP_OUT_LED  6
+#define LOW_TEMP_OUT_LED   6
+#define HIGH_TEMP_OUT_LED  7
 
 
 // INDICATORS (need PWM)
@@ -48,7 +48,8 @@ int receive_data (float *temp_out, float *humid_out);
 // - which should means 'sorry no data from remote sensor'.
 float temp_out_last_val = 0;
 float humid_out_last_val = 0;
-int out_last_count = 0;
+int temp_out_last_count = 0;
+int humid_out_last_count = 0;
 const int last_count_max = 10;
 
 
@@ -85,7 +86,7 @@ void setup ()
 
     // receiver setup
     vw_set_rx_pin(RECEIVER_PIN);
-    vw_setup(2000);	 
+    vw_setup(1000);
     vw_rx_start();
 
     // turn off debug LED
@@ -93,7 +94,8 @@ void setup ()
 
     temp_out_last_val  = temp_out_1;
     humid_out_last_val = humid_min;
-    out_last_count = 0;
+    temp_out_last_count = 0;
+    humid_out_last_count = 0;
 
     LOGLN("Setup end");
 }
@@ -105,31 +107,39 @@ void loop ()
 
     float temp_out  = 0;
     float humid_out = 0;
-    if (!receive_data(&temp_out, &humid_out)) {
-        // Error while receiving data
-        LOGLN("Error while receiving data");
-        error_blink(3);
-
-        if (out_last_count > last_count_max) { // remote connection lost set values to 0
-            LOGLN("Connection lost, reset remote data");
+    int ret = receive_data(&temp_out, &humid_out);
+    if (ret & 1) { // temperature
+        LOGLN("Receiving temp succeed");
+        temp_out_last_val  = temp_out;
+        temp_out_last_count = 0;
+    }
+    else {
+        if (temp_out_last_count > last_count_max) { // remote connection lost set vales to 0
+            LOGLN("Reset remote temp data");
             temp_out = 0.0;
+        }
+        else {
+            temp_out  = temp_out_last_val;
+            temp_out_last_count++;
+        }
+    }
+
+    if (ret & 2) { // humidity
+        LOGLN("Receiving humid succeed");
+        humid_out_last_val = humid_out;
+        humid_out_last_count = 0;
+    }
+    else {
+        if (humid_out_last_count > last_count_max) { // remote connection lost set vales to 0
+            LOGLN("Reset remote humid data");
             humid_out = 0.0;
         }
-        else { // restore last received values, increment counter
-            LOGLN("Using last received data");
-            temp_out  = temp_out_last_val;
+        else { // restore last received value, increment counter
             humid_out = humid_out_last_val;
-            out_last_count++;
+            humid_out_last_count++;
         }
     }
-    else { // Receiving data succeed
-        LOGLN("Receiving data succeed");
-        temp_out_last_val  = temp_out;
-        humid_out_last_val = humid_out;
-        out_last_count = 0;
-    }
 
- 
     long val;
     // Check if temp and pressure values are in ranges, and fix them if needed
     // Humidity is always in range
@@ -178,127 +188,160 @@ void loop ()
 On success: returns 1, and sets temp_out and humid_out params to received values
 On error:   returns 0, and doesn't touch params.
 */
+
+/*
+   returns 1, and sets temp
+   returns 2, and sets humid
+   returns 3, and sets both
+   returns 0, and doesn't touch params
+*/
+//int receive_data (float *temp_out, float *humid_out)
+//{
+//    LOGLN("receive_data begin");
+//    uint8_t buff[VW_MAX_MESSAGE_LEN];
+//    uint8_t bufflen = VW_MAX_MESSAGE_LEN;
+//    uint8_t len = 0;
+//    int _val = 0;     // temporary variable
+//    int i = 0;        // iterator
+//    float temp = 0;   // temperature
+//    float humid = 0;  // humidity
+//    int ret = 0;
+//
+//
+//    String message;
+//
+//    while(vw_have_message()) { // check if there is any message to received
+//
+//        bufflen = VW_MAX_MESSAGE_LEN;
+//        message = "";
+//        if (vw_get_message(buff, &bufflen)) { // if message received
+//            LOG("Message received ");
+//            for (len = 0; len < bufflen; len++) {
+//                message += char(buff[len]);
+//	    }
+//        }
+//        else {
+//            LOGLN("Message seems to be broken");
+//            goto out;
+//        }
+//
+//    /*
+//    Message format is:
+//    T[temp_val*10 + 300]
+//    and
+//    H[humid_val]
+//    ie.:
+//    T900
+//    H700
+//    T12
+//    H100
+//    T0
+//    H21
+//    T153
+//    H15
+//    T500
+//    H80
+//    */
+//
+//        i = 0;
+//        // temperature
+//        if (message[i] == 'T') { // found "T"
+//            i++;
+//            if (i >= len) break;
+//
+//            while (message[i] >= '0' && message[i] <= '9') {
+//                _val *= 10;
+//                _val += message[i] - '0';
+//                i++;
+//                if (i >= len) break;
+//            }
+//
+//            *temp_out = (_val - 300.0) / 10.0;
+//            temp = 1;
+//            LOG("parsed temp_out: ");  LOGLN(*temp_out);
+//        }
+//        if (i >= len) break;
+//
+//        // humidity
+//        if (message[i] == 'H') {
+//            i++;
+//            if (i >= len) goto out;
+//
+//            _val = 0;
+//            while (message[i] >= '0' && message[i] <= '9') {
+//                _val *= 10;
+//                _val += message[i] - '0';
+//                i++;
+//                if (i >= len) break;
+//            }
+//
+//            *humid_out = _val;
+//            humid = 2;
+//            LOG("parsed humid_out: "); LOGLN(*humid_out);
+//        }
+//    }
+//
+//out:
+//
+//    LOG("receive_data end: "); LOGLN(temp + humid);
+//    return temp + humid;
+//}
+
+
+/*
+   returns 1, and sets temp
+   returns 2, and sets humid
+   returns 3, and sets both (temp and humid)
+   returns 0, and doesn't touch params
+*/
 int receive_data (float *temp_out, float *humid_out)
 {
     LOGLN("receive_data begin");
     uint8_t buff[VW_MAX_MESSAGE_LEN];
     uint8_t bufflen = VW_MAX_MESSAGE_LEN;
     uint8_t len = 0;
-    int _val = 0;     // temporary variable
-    int i = 0;        // iterator
-    float temp = 0;   // temperature
-    int negative = 0; // set if temperature is negative
-    float humid = 0;  // humidity
-    int checksum = 0;      // simple checksum - should take only one byte
-    const int prime = 251; // for calculating checksum
+    int _val = 0; // temporary variable
+    int ret = 0;
+
     
     String message;
 
-    if(!vw_have_message()) { // check if there is any message to received
-        // no message to received
-        LOGLN("No message to received");
-        goto err;
-    }
- 
-    if (vw_get_message(buff, &bufflen)) // if message received
-    {
-        for (len = 0; len < bufflen; len++) {
-            message += char(buff[len]);
-	}
-    }
-    else {
-        LOGLN("Message seems to be broken");
-        goto err;
-    }
+    while(vw_have_message()) { // check if there is any message to received
 
-    LOGLN(message);
+        bufflen = VW_MAX_MESSAGE_LEN;
+        message = "";
+        if (vw_get_message(buff, &bufflen)) { // if message received
+            LOG("Message received ");
+            for (len = 0; len < bufflen; len++) {
+                message += char(buff[len]);
+	    }
+        }
+        else {
+            LOGLN("Message seems to be broken");
+            continue;
+        }
 
-    /*
-    Message format is:
-    T[temp_val*10]H[humid_val*10];[checksum];
-    ie.:
-    No checksum  |  With checksum
-    -------------+----------------
-    T-200H700;   |  T-200H700;'\170'  ->  T-200H700;¬
-    T-12H1000;   |  T-12H1000;'\137'  ->  T-12H1000;ë
-    T0H210;      |  T0H210;'\70'      ->  T0H210;F
-    T153H550;    |  T153H550;'\6'     ->  (no pritable checksum)
-    T500H800;    |  T500H800;'\127'   ->  (no pritable checksum)
+        if (len != 2) continue;
 
-    cc = (temp_val * 10 + humid_val) % 251
-    */
+        if (message[1] & 0x80) { // humid
+            message[1] &= 0x7F;
+            _val = message[0];
 
-    // temperature
-    while (message[i] != 'T') { // find "T"
-        i++;
-        if (i >= len) goto err;
+            *humid_out = _val;
+            ret |= 2; // humidity
+            LOG("parsed humid_out: "); LOGLN(*humid_out);
+        }
+        else { // temp
+            _val = message[1];
+            _val << 8;
+            _val |= message[0];
+
+            *temp_out = (_val + temp_out_min) / 10.0;
+            ret |= 1; // temperature
+            LOG("parsed temp_out: ");  LOGLN(*temp_out);
+        }
     }
 
-    i++;
-    if (i >= len) goto err;
-
-    if (message[i] == '-') { // check if negative
-        negative = 1;
-        i++;
-        if (i >= len) goto err;
-    }
-
-    while (message[i] >= '0' && message[i] <= '9') {
-        _val *= 10;
-        _val += message[i] - '0';
-        i++;
-        if (i >= len) goto err;
-    }
-    if (negative)
-        _val *= -1;
-
-    temp = _val/10.0;
-    checksum = (_val + 300) % prime;
-
-    // humidity
-    if (message[i] == 'H')
-        i++;
-    else
-        goto err;
-
-    if (i >= len) goto err;
-
-    _val = 0;
-    while (message[i] >= '0' && message[i] <= '9') {
-        _val *= 10;
-        _val += message[i] - '0';
-        i++;
-        if (i >= len) goto err;
-    }
-    if (message[i] == ';') {
-        humid = _val / 10.0;
-        i++;
-        if (i >= len) goto err;
-   }
-   else
-       goto err;
-
-    checksum = (checksum + _val / 10) % prime;
-
-   // check if checksum is correct
-/*
-   if (message[i] != checksum) {
-        goto err;
-   }
-*/
-
-    *temp_out = temp;
-    *humid_out = humid;
-
-    LOG("parsed temp_out: ");  LOGLN(*temp_out);
-    LOG("parsed humid_out: "); LOGLN(*humid_out);
-
-    LOGLN("receive_data end (OK)");
-    return 1;
-
-err:
-    // do not touch function's params
-    LOGLN("receive_data end (ERR)");
-    return 0;
+    return ret;
 }
 

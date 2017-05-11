@@ -50,7 +50,7 @@ void setup ()
 
     // setup transmiter
     vw_set_tx_pin(TRANSMITER_PIN);
-    vw_setup(2000);
+    vw_setup(1000);
 
     dht.begin();  // initalize temperature and humidity sensor
     LOGLN("Setup end");
@@ -63,20 +63,21 @@ void loop ()
     float temp_out  = dht.readTemperature();
     float humid_out = dht.readHumidity();
  
-    // Check values
-    if (isnan(temp_out) || isnan(humid_out))
-    {
-        // blink LED on error
-        error_blink(3);
-        LOGLN("temp_out or humid_out is NaN");
-    }
-    else {
-        digitalWrite(DEBUG_LED, HIGH);
-        send_data (temp_out, humid_out);
-        digitalWrite(DEBUG_LED, LOW);
-    }
+//    // Check values
+//    if (isnan(temp_out) || isnan(humid_out))
+//    {
+//        // blink LED on error
+//        error_blink(3);
+//        LOGLN("temp_out or humid_out is NaN");
+//    }
+//    else {
+        
+//        send_data (temp_out, humid_out);
+//    }
 
-    delay(delay_time);
+    send_temp(-20);
+    send_humid(90);
+    //delay(delay_time);
 }
 
 
@@ -84,39 +85,86 @@ void send_data (float temp_out, float humid_out)
 {
     LOGLN("send_data begin");
 
-    const int prime = 251;
-    int checksum = (((int(temp_out * 10.0)) + 300) + int(humid_out)) % prime;
-    char chk = (char)checksum;
-
     /*
     Message format is:
-    T[temp_val*10]H[humid_val*10];[checksum];
+    T[temp_val*10 + 300]
+    (for ranges -30 / 60, this gives values 0 / 900)
+    and
+    H[humid_val]
     ie.:
-    No checksum  |  With checksum
-    -------------+----------------
-    T-200H700;   |  T-200H700;'\170'  ->  T-200H700;¬
-    T-12H1000;   |  T-12H1000;'\137'  ->  T-12H1000;ë
-    T0H210;      |  T0H210;'\70'      ->  T0H210;F
-    T153H550;    |  T153H550;'\6'     ->  (no pritable checksum)
-    T500H800;    |  T500H800;'\127'   ->  (no pritable checksum)
+    T900
+    H700
+    T0
+    H100
+    T10
+    H210
 
-    checksum = (temp_val * 10 + humid_val) % 251
-    checksum is one byte long
     */
+    
+    if (temp_out < temp_out_min)
+        temp_out = temp_out_min;
+    else if (temp_out > temp_out_max)
+        temp_out = temp_out_max;
 
-    String temp(int (temp_out * 10.0));
-    String humid(int (humid_out * 10.0));
+    String temp(int ((temp_out - temp_out_min) * 10.0));
+    String humid(int (humid_out * 1));
 
     //String toSend("T" +  temp + "H" + humid + ";");
-    String toSend("T" +  temp + "H" + humid + ";" + chk);
+    String toSendT("T" + temp);
+    String toSendH("H" + humid);
 
-                                                         //12345678901234
-    char msg[14]; // 13 char is long enough to any values "T-300H1000;C"
-    toSend.toCharArray(msg, toSend.length() + 1);
+    char msgT[4]; // 4 char is long enough to any possible value
+    toSendT.toCharArray(msgT, toSendT.length());
+    
+    char msgH[4]; // 4 char is long enough to any possible value
+    toSendH.toCharArray(msgH, toSendH.length());
 
-    vw_send((uint8_t *)msg, strlen(msg)); // send
+    digitalWrite(DEBUG_LED, HIGH);
+    vw_send((uint8_t *)msgT, strlen(msgT)); // send temp
     vw_wait_tx();
+    
+    vw_send((uint8_t *)msgH, strlen(msgH)); // send humid
+    vw_wait_tx();
+    digitalWrite(DEBUG_LED, LOW);
 
     LOGLN("send_data end");
+}
+
+void send_temp (float temp_out)
+{
+    if (temp_out < temp_out_min)
+        temp_out = temp_out_min;
+    else if (temp_out > temp_out_max)
+        temp_out = temp_out_max;
+
+    char msg[2];
+    msg[0] = 0;
+    msg[1] = 0;
+    
+    int temp = ((temp_out - temp_out_min) * 10.0);
+    msg[0] = temp & 0xFF;
+    msg[1] = (temp >> 8);
+    msg[1] &= 0x7F;
+    
+    digitalWrite(DEBUG_LED, HIGH);
+    vw_send((uint8_t *)msg, 2); // send temp
+    vw_wait_tx();
+    digitalWrite(DEBUG_LED, LOW);
+}
+
+void send_humid (float humid_out)
+{
+    char msg[2];
+    msg[0] = 0;
+    msg[1] = 0;
+    
+    int humid = humid_out;
+    msg[0] = humid & 0xFF;
+    msg[1] = 0x80;
+    
+    digitalWrite(DEBUG_LED, HIGH);
+    vw_send((uint8_t *)msg, 2); // send temp
+    vw_wait_tx();
+    digitalWrite(DEBUG_LED, LOW);
 }
 
