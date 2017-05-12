@@ -71,7 +71,6 @@ void loop ()
 //        LOGLN("temp_out or humid_out is NaN");
 //    }
 //    else {
-        
 //        send_data (temp_out, humid_out);
 //    }
 

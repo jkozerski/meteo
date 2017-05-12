@@ -179,7 +179,7 @@ void loop ()
     analogWrite(IND_HUMID_OUT, val);
 
 
-    LOG("delay "); LOGLN(delay_time);
+//    LOG("delay "); LOGLN(delay_time);
     delay(delay_time);
 }
 
@@ -311,7 +311,6 @@ int receive_data (float *temp_out, float *humid_out)
         bufflen = VW_MAX_MESSAGE_LEN;
         message = "";
         if (vw_get_message(buff, &bufflen)) { // if message received
-            LOG("Message received ");
             for (len = 0; len < bufflen; len++) {
                 message += char(buff[len]);
 	    }
@@ -321,10 +320,15 @@ int receive_data (float *temp_out, float *humid_out)
             continue;
         }
 
-        if (len != 2) continue;
+        if (len != 2) {
+            LOG("Wrong message length : "); LOGLN(len);
+            continue;
+        }
+
+        LOG("Message received : "); LOG(int(message[0])); LOGLN(int(message[1]));
 
         if (message[1] & 0x80) { // humid
-            message[1] &= 0x7F;
+            //message[1] &= 0x7F;
             _val = message[0];
 
             *humid_out = _val;
