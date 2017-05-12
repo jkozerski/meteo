@@ -74,8 +74,7 @@ void loop ()
 //        send_data (temp_out, humid_out);
 //    }
 
-    send_temp(-20);
-    send_humid(90);
+    send_data1(-20, 90);
     //delay(delay_time);
 }
 
@@ -163,6 +162,26 @@ void send_humid (float humid_out)
     
     digitalWrite(DEBUG_LED, HIGH);
     vw_send((uint8_t *)msg, 2); // send temp
+    vw_wait_tx();
+    digitalWrite(DEBUG_LED, LOW);
+}
+
+void send_data1 (float temp_out, float humid_out)
+{
+    if (temp_out < temp_out_min)
+        temp_out = temp_out_min;
+    else if (temp_out > temp_out_max)
+        temp_out = temp_out_max;
+
+    uint8_t msg[2];
+
+    uint8_t temp = ((temp_out - temp_out_min) * 2.5); // 0 - 225
+    msg[0] = temp & 0xFF;
+    uint8_t humid = humid_out; // 0 - 100
+    msg[1] = temp & 0xFF;
+
+    digitalWrite(DEBUG_LED, HIGH);
+    vw_send((uint8_t *)msg, 2); // send data
     vw_wait_tx();
     digitalWrite(DEBUG_LED, LOW);
 }

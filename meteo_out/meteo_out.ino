@@ -107,7 +107,31 @@ void loop ()
 
     float temp_out  = 0;
     float humid_out = 0;
+
+    int ret = receive_data1(&temp_out, &humid_out);
+    if (ret) {
+        LOGLN("Receiving datasucceed");
+        temp_out_last_val  = temp_out;
+        temp_out_last_count = 0;
+        humid_out_last_val = humid_out;
+    }
+    else {
+        if (temp_out_last_count > last_count_max) { // remote connection lost set vales to 0
+            LOGLN("Reset remote data");
+            temp_out = 0.0;
+            humid_out = 0.0;
+        }
+        else { // restore last received value, increment counter
+            LOGLN("Restore remote data");
+            temp_out = temp_out_last_val;
+            humid_out = humid_out_last_val;
+            temp_out_last_count++;
+        }
+    }
+
+/*
     int ret = receive_data(&temp_out, &humid_out);
+
     if (ret & 1) { // temperature
         LOGLN("Receiving temp succeed");
         temp_out_last_val  = temp_out;
@@ -139,6 +163,7 @@ void loop ()
             humid_out_last_count++;
         }
     }
+*/
 
     long val;
     // Check if temp and pressure values are in ranges, and fix them if needed
@@ -337,13 +362,59 @@ int receive_data (float *temp_out, float *humid_out)
         }
         else { // temp
             _val = message[1];
-            _val << 8;
+            _val = _val << 8;
             _val |= message[0];
 
             *temp_out = (_val + temp_out_min) / 10.0;
             ret |= 1; // temperature
             LOG("parsed temp_out: ");  LOGLN(*temp_out);
         }
+    }
+
+    return ret;
+}
+
+
+
+int receive_data1 (float *temp_out, float *humid_out)
+{
+    LOGLN("receive_data begin");
+    uint8_t buff[VW_MAX_MESSAGE_LEN];
+    uint8_t bufflen = VW_MAX_MESSAGE_LEN;
+    uint8_t len = 0;
+    int ret = 0;
+
+
+    String message;
+
+    while(vw_have_message()) { // check if there is any message to received
+
+        bufflen = VW_MAX_MESSAGE_LEN;
+        message = "";
+        if (vw_get_message(buff, &bufflen)) { // if message received
+            for (len = 0; len < bufflen; len++) {
+                message += char(buff[len]);
+	    }
+        }
+        else {
+            LOGLN("Message seems to be broken");
+            continue;
+        }
+
+        if (len < 2) {
+            LOG("Wrong message length : "); LOGLN(len);
+            continue;
+        }
+
+        LOG("Message received : "); LOG(uint8_t(message[0]));
+        LOG(", ");                LOGLN(uint8_t(message[1]));
+
+        *temp_out = (uint8_t(message[0]) + temp_out_min) / 2.5;
+        *humid_out = (uint8_t(message[0]));
+        LOG("parsed humid_out: "); LOGLN(*humid_out);
+        LOG("parsed temp_out: ");  LOGLN(*temp_out);
+
+        ret = 1;
     }
 
     return ret;
