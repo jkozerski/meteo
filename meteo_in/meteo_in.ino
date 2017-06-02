@@ -91,7 +91,7 @@ void setup ()
     digitalWrite(DEBUG_LED, LOW);
 
     // initalize temperature and humidity sensor
-    dht.begin();  
+    dht.begin();
 
     if (!bmp.begin(3)) { // init pressure sensor with high precission param - 3
         LOGLN("Cannot initalize BMP (pressure) sensor");
@@ -110,7 +110,7 @@ void loop ()
     float temp_in  = dht.readTemperature();
     float humid_in = dht.readHumidity();
     int32_t pressure = bmp.readPressure();
-    long val; 
+    long val;
 
     // ##### Temperature #####
     // Check value
