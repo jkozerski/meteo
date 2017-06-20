@@ -55,9 +55,9 @@ Adafruit_BMP085 bmp;
 
 // Calibration of indicators - values on which the pointer reach maximum on scale.
 // Notice: zero value should be (manually) calibrated to point 0 on scale.
-const int calib_max_temp  = 255;
-const int calib_max_humid = 255;
-const int calib_max_press = 255;
+const int calib_max_temp  = 246;
+const int calib_max_humid = 252;
+const int calib_max_press = 243;
 
 
 void setup ()

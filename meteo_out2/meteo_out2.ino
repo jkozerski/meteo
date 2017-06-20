@@ -36,15 +36,15 @@ Used Arduino ports:
 
 
 // Temp + Humidity
-#define DHT_PIN  2
+#define DHT_PIN  8
 #define DHT_TYPE DHT22
 DHT dht(DHT_PIN, DHT_TYPE);
 
 
 // Calibration of indicators - values on which the pointer reach maximum on scale.
 // Notice: zero value should be (manually) calibrated to point 0 on scale.
-const int calib_max_temp  = 255;
-const int calib_max_humid = 255;
+const int calib_max_temp  = 248;
+const int calib_max_humid = 241;
 
 void setup ()
 {
@@ -85,9 +85,10 @@ void setup ()
 void loop ()
 {
     LOGLN("Loop");
+    error_blink(1);
 
-    float temp_out  = 0;
-    float humid_out = 0;
+    float temp_out  = dht.readTemperature();
+    float humid_out = dht.readHumidity();
     long val;
 
     // ##### Temperature #####
