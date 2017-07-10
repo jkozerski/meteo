@@ -15,6 +15,9 @@ Used Arduino ports:
 +------+-------------------+----------------------------------+
 |   2  |            DHT22  | Temp & Humid sensor (inside)     |
 |   4  |            DHT22  | Temp & Humid sensor (outside)    |
+|   3  |           Button  | OK button                        |
+|   5  |           Button  | Up button                        |
+|   6  |           Button  | Down button                      |
 +------+-------------------+----------------------------------+
 |  A5  |      BMP180 (SCL) | Air pressure sensor (SCL)        |
 |  A5  |     HD44780 (SCL) | LCD Display (SCL)                |
@@ -39,7 +42,8 @@ Display configuration
 |In:  Err °C  Err% RH|
 |In: -20.5°C  100% RH|
 |Out:-20.5°C  100% RH|
-|          1013,9 hPa|
+|Pressure:    Err hPa|
+|Pressure: 1013.9 hPa|
 |12:34:56  12.12.2017|
 +--------------------+
  */
@@ -68,6 +72,9 @@ LiquidCrystal_I2C lcd(0x27, 20, 4);  // set the LCD address to 0x27 for a 20 cha
 
 
 // TODO: Add RTC
+
+// Delay
+const int32_t sleep_time = 1000; // 1000ms
 
 
 // Error value
@@ -124,7 +131,7 @@ void draw_template()
     lcd.setCursor(0, 1);
     lcd.print("Out:     °C     % RH");
     lcd.setCursor(0, 2);
-    lcd.print("                 hPa");
+    lcd.print("Pressure:    Err hPa");
     lcd.setCursor(0, 3);
     lcd.print("                    ");
 }
@@ -137,77 +144,63 @@ void set_error (int cur, int line)
 
 void fill_data(float temp_in, float temp_out, float humid_in, float humid_out, int32_t pressure)
 {
-    int cur;
-    char buff[6];
+    char buff[8];
 
+/*
+ 01234567890123456789
++--------------------+
+|In:  Err °C  Err% RH|
+|In: -20.5°C  100% RH|
+|Out:-20.5°C  100% RH|
+|Pressure:    Err hPa|
+|Pressure: 1013.9 hPa|
+|12:34:56  12.12.2017|
++--------------------+
+ */
+
+    // Temp inside
     if (temp_in >= err_val) {
         set_error(5, 0);
     }
     else {
-        cur = 6;
-        if (temp_in < 0)
-            cur--;
-        if (temp_in <= -10.0 || temp_in >= 10.0)
-            cur--;
-        lcd.setCursor(cur, 0);
-        //lcd.print("%.1f", temp_in);
-        dtostrf(temp_in, 3, 1, buff);
+        lcd.setCursor(4, 0);
+        dtostrf(temp_in, 5, 1, buff);
         lcd.print(buff);
     }
 
-
+    // Humid inside
     if (humid_in >= err_val) {
         set_error(13, 0);
     }
     else {
-        cur = 15;
-        if (humid_in >= 10.0)
-            cur--;
-        if (humid_in >= 100.0)
-            cur--;
-        lcd.setCursor(cur, 0);
-        //lcd.print("%.0f", humid_in);
-        dtostrf(humid_in, 1, 0, buff);
+        lcd.setCursor(13, 0);
+        dtostrf(humid_in, 3, 0, buff);
         lcd.print(buff);
     }
 
-
+    // Temp outside
     if (temp_out >= err_val) {
         set_error(5, 1);
     }
     else {
-        cur = 6;
-        if (temp_out < 0)
-            cur--;
-        if (temp_out <= -10.0 || temp_out >= 10.0)
-            cur--;
-        lcd.setCursor(cur, 1);
-        //lcd.print("%.1f", temp_out);
-        dtostrf(temp_out, 3, 1, buff);
+        lcd.setCursor(4, 1);
+        dtostrf(temp_out, 5, 1, buff);
         lcd.print(buff);
     }
 
+    // Humid outside
     if (humid_out >= err_val) {
         set_error(13, 1);
     }
     else {
-        cur = 15;
-        if (humid_out >= 10.0)
-            cur--;
-        if (humid_out >= 100.0)
-            cur--;
-        lcd.setCursor(cur, 1);
-        //lcd.print("%.0f", humid_out);
-        dtostrf(humid_out, 1, 0, buff);
+        lcd.setCursor(13, 1);
+        dtostrf(humid_out, 3, 0, buff);
         lcd.print(buff);
     }
 
-    cur = 11;
-    if (pressure >= 100000)
-        cur--;
-    lcd.setCursor(cur, 2);
-    //lcd.print("%.1f", (float) pressure/100.0);
-    dtostrf(pressure/100.0, 5, 1, buff);
+    // Pressure
+    lcd.setCursor(10, 2);
+    dtostrf(pressure/100.0, 6, 1, buff);
     lcd.print(buff);
 }
 
@@ -230,9 +223,6 @@ void loop ()
         error_blink(1);
         temp_in = err_val; //ERR
     }
-    else { // Temp in OK
-      
-    }
 
     
     // ##### Temperature outside #####
@@ -242,9 +232,6 @@ void loop ()
         LOGLN("temp_out is NaN");
         error_blink(1);
         temp_out = err_val; //ERR
-    }
-    else { // Temp out OK
-      
     }
 
 
@@ -276,7 +263,7 @@ void loop ()
     fill_data(temp_in, temp_out, humid_in, humid_out, pressure);
 
     
-    LOG("delay "); LOGLN(delay_time);
-    delay(delay_time);
+    LOG("delay "); LOGLN(sleep_time);
+    delay(sleep_time);
 }
 
