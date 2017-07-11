@@ -51,7 +51,12 @@ Display configuration
 
 
 // LEDs
-#define DEBUG_LED          13
+#define DEBUG_LED    13
+
+// Buttons
+#define BUTTON_OK     3
+#define BUTTON_UP     5
+#define BUTTON_DOWN   6
 
 // Temp + Humidity inside
 #define DHT_IN_PIN  2
@@ -76,7 +81,7 @@ LiquidCrystal_I2C lcd(0x27, 20, 4);  // set the LCD address to 0x27 for a 20 cha
 DS3231 rtc;
 
 // Delay
-const int32_t sleep_time = 1000; // 1000ms
+const int32_t sleep_time = 250; // [ms]
 
 // Error value
 const int32_t err_val = 200000;
@@ -146,57 +151,6 @@ void print_time_string(unsigned row)
 
     lcd.setCursor(0, row);
     lcd.print(str);
-}
-
-void setup ()
-{
-    #ifdef DEBUG
-    // Open serial port for debug
-    Serial.begin(9600);
-    LOGLN("Setup begin");
-    #endif
-
-    // Configure RTC
-    rtc.enableOscillator(true /* ON */,
-                        false /* disabled if batery-only powered */,
-                        0 /* freq: 1Hz */);
-    rtc.enable32kHz(false);
-    rtc.setClockMode(false); /* set to 24-hour mode */
-
-    // LCD
-    lcd.init();
-
-    // LEDs
-    pinMode(DEBUG_LED, OUTPUT);
-    digitalWrite(DEBUG_LED, LOW);
-
-    lcd.backlight();
-    //lcd.noBacklight();
-    //lcd.noCursor();
-    //lcd.noBlink()
-    lcd.setCursor(5, 0);
-    lcd.print("Witamy!");
-    lcd.setCursor(1, 1);
-    lcd.print("Stacja pogodowa");
-    lcd.setCursor(7, 2);
-    lcd.print("wersja D_0.1");
-
-    // Sleep for setup dht sensors
-    delay(2000);
-
-    // initalize temperature and humidity sensor
-    dht_in.begin();
-    dht_out.begin();
-
-    if (!bmp.begin(3)) { // init pressure sensor with high precission param - 3
-        LOGLN("Cannot initalize BMP (pressure) sensor");
-        error_blink(5);
-        digitalWrite(DEBUG_LED, HIGH); // if error turn debug LED on
-        delay(5000);
-        digitalWrite(DEBUG_LED, LOW);
-    }
-
-    LOGLN("Setup end");
 }
 
 void draw_template()
@@ -279,10 +233,204 @@ void fill_data(float temp_in, float temp_out, float humid_in, float humid_out, i
     lcd.print(buff);
 }
 
+
+/* implements hysteresis*/
+bool was_button_pressed (unsigned pin)
+{
+    const int default_state = HIGH; /*assume that button is pull-up*/
+
+    if (digitalRead(pin) != default_state) {
+        delay(50); /*ms*/
+        if (digitalRead(pin) != default_state) {
+            do {} while (digitalRead(pin) == !default_state); // wait for button releases
+            return true;
+        }
+    }
+    return false;
+}
+
+/* check if should enter the time_setup finction */
+bool enter_time_setup()
+{
+    const int default_state = HIGH; /*assume that button is pull-up*/
+
+    if (digitalRead(BUTTON_UP)   != default_state &&
+        digitalRead(BUTTON_DOWN) != default_state &&
+        digitalRead(BUTTON_OK)   != default_state) {
+        delay(50); /*ms*/
+        if (digitalRead(BUTTON_UP)   != default_state &&
+            digitalRead(BUTTON_DOWN) != default_state &&
+            digitalRead(BUTTON_OK)   != default_state) {
+                do {} while (digitalRead(BUTTON_UP)   != default_state ||
+                             digitalRead(BUTTON_DOWN) != default_state ||
+                             digitalRead(BUTTON_OK)   != default_state);
+                return true;
+            }
+    }
+
+    return false;
+}
+
+void time_setup()
+{
+    int pos = 0;
+    /* possition:
+     * 0 - hour
+     * 1 - minute
+     * 2 - second
+     * 3 - day
+     * 4 - month
+     * 5 - year
+     * 6 - exit;
+    */
+
+    byte val;
+    int change = 0;
+    bool tmp1, tmp2;
+
+    lcd.cursor();
+    lcd.blink();
+
+    val = rtc.getHour(tmp1, tmp2);
+    lcd.setCursor(0, 3);
+    while (true) {
+
+        change = 0;
+        if (was_button_pressed(BUTTON_UP))
+            change = 1;
+        if (was_button_pressed(BUTTON_DOWN))
+            change = -1;
+        if (was_button_pressed(BUTTON_OK)) {
+            pos++;
+            switch (val) {
+                case 1: val = rtc.getMinute(); lcd.setCursor(3, 3); break;
+                case 2: val = rtc.getSecond(); lcd.setCursor(6, 3); break;
+                case 3: val = rtc.getDate(); lcd.setCursor(10, 3); break;
+                case 4: val = rtc.getMonth(tmp1); lcd.setCursor(13, 3);break;
+                case 5: val = rtc.getYear(); lcd.setCursor(18, 3); break;
+                default: break;
+            }
+            if (val > 5) { //exit setup function
+              break;
+            }
+            continue;
+        }
+
+        if (change == 0)
+            continue; // Nothig to do;
+
+        val += change;
+        switch (pos) {
+            case 0:
+                if (val < 0)  val = 23;
+                if (val > 23) val = 0;
+                rtc.setHour(val);
+                lcd.setCursor(0, 3);
+                lcd.print(val);
+                break;
+            case 1:
+                if (val < 0)  val = 59;
+                if (val > 59) val = 0;
+                rtc.setMinute(val);
+                lcd.setCursor(3, 3);
+                lcd.print(val);
+                break;
+            case 2:
+                if (val < 0)  val = 59;
+                if (val > 59) val = 0;
+                rtc.setSecond(val);
+                lcd.setCursor(6, 3);
+                lcd.print(val);
+                break;
+            case 3:
+                if (val < 0)  val = 31; // this allows to set 31.02 as a date
+                if (val > 31) val = 0;
+                rtc.setDate(val);
+                lcd.setCursor(10, 3);
+                lcd.print(val);
+                break;
+            case 4:
+                if (val < 0)  val = 12;
+                if (val > 12) val = 0;
+                rtc.setDate(val);
+                lcd.setCursor(16, 3);
+                lcd.print(val);
+                break;
+            case 5:
+                if (val < 0)  val = 99;
+                if (val > 99) val = 0;
+                rtc.setYear(val);
+                lcd.setCursor(18, 3);
+                lcd.print(val);
+                break;
+            default: break;
+        }
+        if (pos > 5) break; // exit loop;
+    }
+
+    lcd.noCursor();
+    lcd.noBlink();
+}
+
+void setup ()
+{
+    #ifdef DEBUG
+    // Open serial port for debug
+    Serial.begin(9600);
+    LOGLN("Setup begin");
+    #endif
+
+    // Configure RTC
+    rtc.enableOscillator(true /* ON */,
+                        false /* disabled if batery-only powered */,
+                        0 /* freq: 1Hz */);
+    rtc.enable32kHz(false);
+    rtc.setClockMode(false); /* set to 24-hour mode */
+
+    // LCD
+    lcd.init();
+
+    // LEDs
+    pinMode(DEBUG_LED, OUTPUT);
+    digitalWrite(DEBUG_LED, LOW);
+
+    lcd.backlight();
+    //lcd.noBacklight();
+    //lcd.noCursor();
+    //lcd.noBlink()
+    lcd.setCursor(5, 0);
+    lcd.print("Witamy!");
+    lcd.setCursor(1, 1);
+    lcd.print("Stacja pogodowa");
+    lcd.setCursor(7, 2);
+    lcd.print("wersja D_0.1");
+
+    // Sleep for setup dht sensors
+    delay(2000);
+
+    // initalize temperature and humidity sensor
+    dht_in.begin();
+    dht_out.begin();
+
+    if (!bmp.begin(3)) { // init pressure sensor with high precission param - 3
+        LOGLN("Cannot initalize BMP (pressure) sensor");
+        error_blink(5);
+        digitalWrite(DEBUG_LED, HIGH); // if error turn debug LED on
+        delay(5000);
+        digitalWrite(DEBUG_LED, LOW);
+    }
+
+    LOGLN("Setup end");
+}
+
 void loop ()
 {
     LOGLN("Loop");
 //    error_blink(1);
+
+    if (enter_time_setup())
+        time_setup();
+
     float temp_in   = dht_in.readTemperature();
     float humid_in  = dht_in.readHumidity();
     float temp_out  = dht_out.readTemperature();
