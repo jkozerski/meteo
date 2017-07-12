@@ -81,7 +81,7 @@ LiquidCrystal_I2C lcd(0x27, 20, 4);  // set the LCD address to 0x27 for a 20 cha
 DS3231 rtc;
 
 // Delay
-const int32_t sleep_time = 250; // [ms]
+const int32_t sleep_time = 100; // [ms]
 
 // Error value
 const int32_t err_val = 200000;
@@ -283,7 +283,7 @@ bool enter_time_setup()
 
 ////////////////////////////////////////////////////////////////////////////////
 
-void time_setup()
+void time_setup(unsigned line)
 {
     int pos = 0;
     /* possition:
@@ -304,7 +304,7 @@ void time_setup()
     lcd.blink();
 
     val = rtc.getHour(tmp1, tmp2);
-    lcd.setCursor(0, 3);
+    lcd.setCursor(0, line);
     while (true) {
 
         change = 0;
@@ -315,11 +315,11 @@ void time_setup()
         if (was_button_pressed(BUTTON_OK)) {
             pos++;
             switch (val) {
-                case 1: val = rtc.getMinute(); lcd.setCursor(3, 3); break;
-                case 2: val = rtc.getSecond(); lcd.setCursor(6, 3); break;
-                case 3: val = rtc.getDate(); lcd.setCursor(10, 3); break;
-                case 4: val = rtc.getMonth(tmp1); lcd.setCursor(13, 3);break;
-                case 5: val = rtc.getYear(); lcd.setCursor(18, 3); break;
+                case 1: val = rtc.getMinute();    lcd.setCursor(3, line);  break;
+                case 2: val = rtc.getSecond();    lcd.setCursor(6, line);  break;
+                case 3: val = rtc.getDate();      lcd.setCursor(10, line); break;
+                case 4: val = rtc.getMonth(tmp1); lcd.setCursor(13, line); break;
+                case 5: val = rtc.getYear();      lcd.setCursor(18, line); break;
                 default: break;
             }
             if (val > 5) { //exit setup function
@@ -337,42 +337,42 @@ void time_setup()
                 if (val < 0)  val = 23;
                 if (val > 23) val = 0;
                 rtc.setHour(val);
-                lcd.setCursor(0, 3);
+                lcd.setCursor(0, line);
                 lcd.print(val);
                 break;
             case 1:
                 if (val < 0)  val = 59;
                 if (val > 59) val = 0;
                 rtc.setMinute(val);
-                lcd.setCursor(3, 3);
+                lcd.setCursor(3, line);
                 lcd.print(val);
                 break;
             case 2:
                 if (val < 0)  val = 59;
                 if (val > 59) val = 0;
                 rtc.setSecond(val);
-                lcd.setCursor(6, 3);
+                lcd.setCursor(6, line);
                 lcd.print(val);
                 break;
             case 3:
                 if (val < 0)  val = 31; // this allows to set 31.02 as a date
                 if (val > 31) val = 0;
                 rtc.setDate(val);
-                lcd.setCursor(10, 3);
+                lcd.setCursor(10, line);
                 lcd.print(val);
                 break;
             case 4:
                 if (val < 0)  val = 12;
                 if (val > 12) val = 0;
                 rtc.setDate(val);
-                lcd.setCursor(16, 3);
+                lcd.setCursor(16, line);
                 lcd.print(val);
                 break;
             case 5:
                 if (val < 0)  val = 99;
                 if (val > 99) val = 0;
                 rtc.setYear(val);
-                lcd.setCursor(18, 3);
+                lcd.setCursor(18, line);
                 lcd.print(val);
                 break;
             default: break;
@@ -451,7 +451,7 @@ void loop ()
 //    error_blink(1);
 
     if (enter_time_setup())
-        time_setup();
+        time_setup(3 /* 4th row */);
 
     float temp_in   = dht_in.readTemperature();
     float humid_in  = dht_in.readHumidity();
