@@ -86,6 +86,7 @@ const int32_t sleep_time = 250; // [ms]
 // Error value
 const int32_t err_val = 200000;
 
+////////////////////////////////////////////////////////////////////////////////
 
 /* returns time-date string via param from rtc.
  * rtc should be at least 21 bytes long.
@@ -153,6 +154,8 @@ void print_time_string(unsigned row)
     lcd.print(str);
 }
 
+////////////////////////////////////////////////////////////////////////////////
+
 void draw_template()
 {
     lcd.setCursor(0, 0);
@@ -165,11 +168,15 @@ void draw_template()
     lcd.print("                    ");
 }
 
+////////////////////////////////////////////////////////////////////////////////
+
 void set_error (int cur, int line)
 {
     lcd.setCursor(cur, line);
     lcd.print("Err");
 }
+
+////////////////////////////////////////////////////////////////////////////////
 
 void fill_data(float temp_in, float temp_out, float humid_in, float humid_out, int32_t pressure)
 {
@@ -233,6 +240,7 @@ void fill_data(float temp_in, float temp_out, float humid_in, float humid_out, i
     lcd.print(buff);
 }
 
+////////////////////////////////////////////////////////////////////////////////
 
 /* implements hysteresis*/
 bool was_button_pressed (unsigned pin)
@@ -248,6 +256,8 @@ bool was_button_pressed (unsigned pin)
     }
     return false;
 }
+
+////////////////////////////////////////////////////////////////////////////////
 
 /* check if should enter the time_setup finction */
 bool enter_time_setup()
@@ -270,6 +280,8 @@ bool enter_time_setup()
 
     return false;
 }
+
+////////////////////////////////////////////////////////////////////////////////
 
 void time_setup()
 {
@@ -372,6 +384,8 @@ void time_setup()
     lcd.noBlink();
 }
 
+////////////////////////////////////////////////////////////////////////////////
+
 void setup ()
 {
     #ifdef DEBUG
@@ -379,6 +393,11 @@ void setup ()
     Serial.begin(9600);
     LOGLN("Setup begin");
     #endif
+
+    // Buttons
+    pinMode(BUTTON_OK, INPUT_PULLUP);
+    pinMode(BUTTON_UP, INPUT_PULLUP);
+    pinMode(BUTTON_DOWN, INPUT_PULLUP);
 
     // Configure RTC
     rtc.enableOscillator(true /* ON */,
@@ -422,6 +441,8 @@ void setup ()
 
     LOGLN("Setup end");
 }
+
+////////////////////////////////////////////////////////////////////////////////
 
 void loop ()
 {
