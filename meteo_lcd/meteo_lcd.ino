@@ -82,6 +82,8 @@ DS3231 rtc;
 
 // Delay
 const int32_t sleep_time = 100; // [ms]
+const int32_t meteo_delay = 2000; // [ms] Update meteo data every 2s
+int32_t delay_counter = 0;
 
 // Error value
 const int32_t err_val = 200000;
@@ -384,6 +386,74 @@ void time_setup(unsigned line)
     lcd.noBlink();
 }
 
+void read_meteo_data(float &temp_in,  float &humid_in,
+                     float &temp_out, float &humid_out,
+                     int32_t &pressure)
+{
+    temp_in   = dht_in.readTemperature();
+    humid_in  = dht_in.readHumidity();
+    temp_out  = dht_out.readTemperature();
+    humid_out = dht_out.readHumidity();
+    pressure  = bmp.readPressure();
+
+
+    // ##### Temperature inside #####
+    // Check value
+    if (isnan(temp_in)) {
+        // blink LED on error
+        LOGLN("temp_in is NaN");
+        error_blink(1);
+        temp_in = err_val; //ERR
+    }
+    else {
+        LOG("Temp in: "); LOGLN(temp_in);
+    }
+
+
+    // ##### Temperature outside #####
+    // Check value
+    if (isnan(temp_out)) {
+        // blink LED on error
+        LOGLN("temp_out is NaN");
+        error_blink(1);
+        temp_out = err_val; //ERR
+    }
+    else {
+        LOG("Temp out: "); LOGLN(temp_out);
+    }
+
+
+    // ##### Humidity inside #####
+    // Check value
+    if(isnan(humid_in)) {
+        // blink LED on error
+        LOGLN("humid_in is NaN");
+        error_blink(1);
+        humid_in = err_val; //ERR
+    }
+    else {
+        LOG("Humid in: "); LOGLN(humid_in);
+    }
+
+
+    // ##### Humidity outside #####
+    // Check value
+    if(isnan(humid_out)) {
+        // blink LED on error
+        LOGLN("humid_out is NaN");
+        error_blink(1);
+        humid_out = err_val; //ERR
+    }
+    else {
+        LOG("Humid out: "); LOGLN(humid_out);
+    }
+
+
+    // ##### Pressure #####
+    // Nothing to do here
+    LOG("Pressuren: "); LOGLN(pressure);
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 
 void setup ()
@@ -453,75 +523,24 @@ void loop ()
     if (enter_time_setup())
         time_setup(3 /* 4th row */);
 
-    float temp_in   = dht_in.readTemperature();
-    float humid_in  = dht_in.readHumidity();
-    float temp_out  = dht_out.readTemperature();
-    float humid_out = dht_out.readHumidity();
-    int32_t pressure = bmp.readPressure();
+    // Update meteo data after every 'meteo_delay' time
+    if (delay_counter == 0) {
+        float temp_in, humid_in, temp_out, humid_out;
+        int32_t pressure;
 
-
-    // ##### Temperature inside #####
-    // Check value
-    if (isnan(temp_in)) {
-        // blink LED on error
-        LOGLN("temp_in is NaN");
-        error_blink(1);
-        temp_in = err_val; //ERR
-    }
-    else {
-        LOG("Temp in: "); LOGLN(temp_in);
+        read_meteo_data(temp_in, humid_in, temp_out, humid_out, pressure);
+        draw_template();
+        fill_data(temp_in, temp_out, humid_in, humid_out, pressure);
     }
 
-    
-    // ##### Temperature outside #####
-    // Check value
-    if (isnan(temp_out)) {
-        // blink LED on error
-        LOGLN("temp_out is NaN");
-        error_blink(1);
-        temp_out = err_val; //ERR
-    }
-    else {
-        LOG("Temp out: "); LOGLN(temp_out);
-    }
+    // update delay_counter
+    delay_counter = (delay_counter + 1) % (meteo_delay / sleep_time);
 
 
-    // ##### Humidity inside #####
-    // Check value
-    if(isnan(humid_in)) {
-        // blink LED on error
-        LOGLN("humid_in is NaN");
-        error_blink(1);
-        humid_in = err_val; //ERR
-    }
-    else {
-        LOG("Humid in: "); LOGLN(humid_in);
-    }
-
-
-    // ##### Humidity outside #####
-    // Check value
-    if(isnan(humid_out)) {
-        // blink LED on error
-        LOGLN("humid_out is NaN");
-        error_blink(1);
-        humid_out = err_val; //ERR
-    }
-    else {
-        LOG("Humid out: "); LOGLN(humid_out);
-    }
-
-
-    // ##### Pressure #####
-    // Nothing to do here
-    LOG("Pressuren: "); LOGLN(pressure);
-
-
-    draw_template();
-    fill_data(temp_in, temp_out, humid_in, humid_out, pressure);
+    // Update the displayed time
     print_time_string(3 /* 4th row */);
 
-    
+
     LOG("delay "); LOGLN(sleep_time);
     delay(sleep_time);
 }
