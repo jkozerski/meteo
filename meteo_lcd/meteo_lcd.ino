@@ -242,7 +242,7 @@ void fill_data(float temp_in, float temp_out, float humid_in, float humid_out, i
 
 ////////////////////////////////////////////////////////////////////////////////
 
-/* implements hysteresis*/
+/* implements hysteresis */
 bool was_button_pressed (unsigned pin)
 {
     const int default_state = HIGH; /*assume that button is pull-up*/
@@ -394,6 +394,10 @@ void setup ()
     LOGLN("Setup begin");
     #endif
 
+    // LEDs
+    pinMode(DEBUG_LED, OUTPUT);
+    digitalWrite(DEBUG_LED, LOW);
+
     // Buttons
     pinMode(BUTTON_OK, INPUT_PULLUP);
     pinMode(BUTTON_UP, INPUT_PULLUP);
@@ -409,10 +413,6 @@ void setup ()
     // LCD
     lcd.init();
 
-    // LEDs
-    pinMode(DEBUG_LED, OUTPUT);
-    digitalWrite(DEBUG_LED, LOW);
-
     lcd.backlight();
     //lcd.noBacklight();
     //lcd.noCursor();
@@ -427,10 +427,11 @@ void setup ()
     // Sleep for setup dht sensors
     delay(2000);
 
-    // initalize temperature and humidity sensor
+    // Temperature and humidity sensor
     dht_in.begin();
     dht_out.begin();
 
+    // Pressure sensor
     if (!bmp.begin(3)) { // init pressure sensor with high precission param - 3
         LOGLN("Cannot initalize BMP (pressure) sensor");
         error_blink(5);
@@ -467,6 +468,9 @@ void loop ()
         error_blink(1);
         temp_in = err_val; //ERR
     }
+    else {
+        LOG("Temp in: "); LOGLN(temp_in);
+    }
 
     
     // ##### Temperature outside #####
@@ -476,6 +480,9 @@ void loop ()
         LOGLN("temp_out is NaN");
         error_blink(1);
         temp_out = err_val; //ERR
+    }
+    else {
+        LOG("Temp out: "); LOGLN(temp_out);
     }
 
 
@@ -487,6 +494,9 @@ void loop ()
         error_blink(1);
         humid_in = err_val; //ERR
     }
+    else {
+        LOG("Humid in: "); LOGLN(humid_in);
+    }
 
 
     // ##### Humidity outside #####
@@ -497,10 +507,14 @@ void loop ()
         error_blink(1);
         humid_out = err_val; //ERR
     }
+    else {
+        LOG("Humid out: "); LOGLN(humid_out);
+    }
 
 
     // ##### Pressure #####
     // Nothing to do here
+    LOG("Pressuren: "); LOGLN(pressure);
 
 
     draw_template();
