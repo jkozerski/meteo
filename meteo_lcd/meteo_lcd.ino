@@ -43,8 +43,8 @@ Display configuration
 |In:  Err °C  Err% RH|
 |In: -20.5°C  100% RH|
 |Out:-20.5°C  100% RH|
-|Pressure:    Err hPa|
-|Pressure: 1013.9 hPa|
+|   Press:    Err hPa|
+|   Press: 1013.9 hPa|
 |17:34:59  31.12.2017|
 +--------------------+
  */
@@ -89,12 +89,128 @@ int32_t delay_counter = 0;
 const int32_t err_val = 200000;
 
 ////////////////////////////////////////////////////////////////////////////////
+byte c0[8] = {
+  B00000,
+  B00100,
+  B00100,
+  B00100,
+  B00000,
+  B00000,
+  B00000,
+};
+
+byte c1[8] = {
+  B00000,
+  B00101,
+  B00110,
+  B00100,
+  B00000,
+  B00000,
+  B00000,
+};
+
+byte c2[8] = {
+  B00000,
+  B00100,
+  B00100,
+  B00111,
+  B00000,
+  B00000,
+  B00000,
+};
+
+byte c3[8] = {
+  B00000,
+  B00100,
+  B00100,
+  B00100,
+  B00010,
+  B00001,
+  B00000,
+};
+
+byte c4[8] = {
+  B00000,
+  B00100,
+  B00100,
+  B00100,
+  B00100,
+  B00100,
+  B00000,
+};
+
+byte c5[8] = {
+  B00000,
+  B00100,
+  B00100,
+  B00100,
+  B01000,
+  B10000,
+  B00000,
+};
+
+byte c6[8] = {
+  B00000,
+  B00100,
+  B00100,
+  B11100,
+  B00000,
+  B00000,
+  B00000,
+};
+
+byte c7[8] = {
+  B00000,
+  B10100,
+  B01100,
+  B00100,
+  B00000,
+  B00000,
+  B00000,
+};
+
+void print_clock_setup()
+{
+    lcd.createChar(0, c0);
+    lcd.createChar(1, c1);
+    lcd.createChar(2, c2);
+    lcd.createChar(3, c3);
+    lcd.createChar(4, c4);
+    lcd.createChar(5, c5);
+    lcd.createChar(6, c6);
+    lcd.createChar(7, c7);
+}
+
+void print_clock_char(byte c)
+{
+    lcd.setCursor(1, 2);
+    lcd.write(c);
+}
+
+void print_clock()
+{
+    static byte iter;
+
+    iter = (iter + 1) % 8;
+    print_clock_char(iter);
+}
+
+////////////////////////////////////////////////////////////////////////////////
 
 /* returns time-date string via param from rtc.
  * rtc should be at least 21 bytes long.
  */
 void print_time_string(unsigned row)
 {
+
+    static byte last_second;
+    if (last_second == rtc.getSecond()) {
+        // No update needed
+        return;
+    }
+
+    //print_clock(); // Optional
+
     bool tmp1 = false;
     bool tmp2 = false;
 
@@ -121,7 +237,7 @@ void print_time_string(unsigned row)
     str[5] = ':';
 
     // second
-    ret = rtc.getSecond();
+    ret = last_second;
     str[6] = ret / 10;
     str[7] = ret % 10;
 
@@ -165,7 +281,7 @@ void draw_template()
     lcd.setCursor(0, 1);
     lcd.print("Out:     °C     % RH");
     lcd.setCursor(0, 2);
-    lcd.print("Pressure:    Err hPa");
+    lcd.print("   Pressure: Err hPa");
     lcd.setCursor(0, 3);
     lcd.print("                    ");
 }
@@ -188,10 +304,8 @@ void fill_data(float temp_in, float temp_out, float humid_in, float humid_out, i
  01234567890123456789
 +--------------------+
 |In:  Err °C  Err% RH|
-|In: -20.5°C  100% RH|
 |Out:-20.5°C  100% RH|
-|Pressure:    Err hPa|
-|Pressure: 1013.9 hPa|
+|   Press: 1013.9 hPa|
 |17:34:59  31.12.2017|
 +--------------------+
  */
@@ -253,6 +367,7 @@ bool was_button_pressed (unsigned pin)
         delay(50); /*ms*/
         if (digitalRead(pin) != default_state) {
             do {} while (digitalRead(pin) == !default_state); // wait for button releases
+            delay(50);
             return true;
         }
     }
@@ -276,6 +391,7 @@ bool enter_time_setup()
                 do {} while (digitalRead(BUTTON_UP)   != default_state ||
                              digitalRead(BUTTON_DOWN) != default_state ||
                              digitalRead(BUTTON_OK)   != default_state);
+                delay(50);
                 return true;
             }
     }
@@ -480,6 +596,7 @@ void setup ()
 
     // LCD
     lcd.init();
+    //print_clock_setup(); // Optional
 
     lcd.backlight();
     //lcd.noBacklight();
