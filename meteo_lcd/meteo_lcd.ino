@@ -1,11 +1,11 @@
 // Uncomment define DEBUG line to build with debug logs (on serial)
-// This line MUST be before meteo_common.h include to make any effect
+// This line MUST be before log.h include to make any effect
 //#define DEBUG
 
 #include <DHT.h>  // Temp and humidity
 #include <Wire.h> // Pressure
 #include <Adafruit_BMP085.h> // Pressure
-#include <meteo_common.h> // Common function for meteo
+#include <log.h> // Serial log support
 #include <LiquidCrystal_I2C.h> // LCD display
 #include <DS3231.h>
 
@@ -81,7 +81,7 @@ LiquidCrystal_I2C lcd(0x27, 20, 4);  // set the LCD address to 0x27 for a 20 cha
 DS3231 rtc;
 
 // Delay
-const int32_t sleep_time = 100; // [ms]
+const int32_t delay_time = 100; // [ms]
 const int32_t meteo_delay = 2000; // [ms] Update meteo data every 2s
 int32_t delay_counter = 0;
 
@@ -458,11 +458,9 @@ void read_meteo_data(float &temp_in,  float &humid_in,
 
 void setup ()
 {
-    #ifdef DEBUG
-    // Open serial port for debug
-    Serial.begin(9600);
+    LogInit(9600);
+
     LOGLN("Setup begin");
-    #endif
 
     // LEDs
     pinMode(DEBUG_LED, OUTPUT);
@@ -534,14 +532,14 @@ void loop ()
     }
 
     // update delay_counter
-    delay_counter = (delay_counter + 1) % (meteo_delay / sleep_time);
+    delay_counter = (delay_counter + 1) % (meteo_delay / delay_time);
 
 
     // Update the displayed time
     print_time_string(3 /* 4th row */);
 
 
-    LOG("delay "); LOGLN(sleep_time);
-    delay(sleep_time);
+    LOG("delay "); LOGLN(delay_time);
+    delay(delay_time);
 }
 
