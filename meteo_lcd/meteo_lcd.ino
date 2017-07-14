@@ -43,8 +43,8 @@ Display configuration
 |In:  Err °C  Err% RH|
 |In: -20.5°C  100% RH|
 |Out:-20.5°C  100% RH|
-|   Press:    Err hPa|
-|   Press: 1013.9 hPa|
+|             Err hPa|
+|          1013.9 hPa|
 |17:34:59  31.12.2017|
 +--------------------+
  */
@@ -80,6 +80,7 @@ LiquidCrystal_I2C lcd(0x27, 20, 4);  // set the LCD address to 0x27 for a 20 cha
 // Real-time clock
 DS3231 rtc;
 
+
 // Delay
 const int32_t delay_time = 100; // [ms]
 const int32_t meteo_delay = 2000; // [ms] Update meteo data every 2s
@@ -89,6 +90,7 @@ int32_t delay_counter = 0;
 const int32_t err_val = 200000;
 
 ////////////////////////////////////////////////////////////////////////////////
+//                DEW POINT SUPPORT
 
 int8_t dew_point[41][21] = {{-26, 1, 11, 17, 21, 25, 28, 31, 33, 35, 37, 39, 40, 42, 43, 44, 46, 47, 48, 49, 50},
 {-27, 0, 10, 16, 21, 24, 27, 30, 32, 34, 36, 38, 39, 41, 42, 43, 45, 46, 47, 48, 49},
@@ -155,6 +157,7 @@ int8_t get_dew_point (float temp, float humid)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+//                CLOCK ICON SUPPORT
 byte c0[8] = {
   B00000,
   B00100,
@@ -261,168 +264,9 @@ void print_clock()
     print_clock_char(iter);
 }
 
-////////////////////////////////////////////////////////////////////////////////
-
-/* returns time-date string via param from rtc.
- * rtc should be at least 21 bytes long.
- */
-void print_time_string(unsigned row)
-{
-
-    static byte last_second;
-    if (last_second == rtc.getSecond()) {
-        // No update needed
-        return;
-    }
-
-    //print_clock(); // Optional
-
-    bool tmp1 = false;
-    bool tmp2 = false;
-
-    char str[21];
-    byte ret;
-
-    /*
-     * 01234567890123456789
-     * 17:34:59  31.12.2017
-     */
-
-    // hour
-    ret = rtc.getHour(tmp1, tmp2);
-    str[0] = ret / 10;
-    str[1] = ret % 10;
-
-    str[2] = ':';
-
-    // minute
-    ret = rtc.getMinute();
-    str[3] = ret / 10;
-    str[4] = ret % 10;
-
-    str[5] = ':';
-
-    // second
-    ret = last_second;
-    str[6] = ret / 10;
-    str[7] = ret % 10;
-
-    str[8] = ' ';
-    str[9] = ' ';
-
-    // day
-    ret = rtc.getDate();
-    str[10] = ret / 10;
-    str[11] = ret % 10;
-
-    str[12] = '.';
-
-    // month
-    ret = rtc.getMonth(tmp1);
-    str[13] = ret / 10;
-    str[14] = ret % 10;
-
-    str[15] = '.';
-
-    // year - only last two digits
-    ret = rtc.getYear();
-    str[16] = '2';
-    str[17] = '0';
-    str[18] = ret / 10;
-    str[19] = ret % 10;
-
-    // end of string
-    str[20] = '\0';
-
-    lcd.setCursor(0, row);
-    lcd.print(str);
-}
 
 ////////////////////////////////////////////////////////////////////////////////
-
-void draw_template()
-{
-    lcd.setCursor(0, 0);
-    lcd.print("In:      °C     % RH");
-    lcd.setCursor(0, 1);
-    lcd.print("Out:     °C     % RH");
-    lcd.setCursor(0, 2);
-    lcd.print("   Pressure: Err hPa");
-    lcd.setCursor(0, 3);
-    lcd.print("                    ");
-}
-
-////////////////////////////////////////////////////////////////////////////////
-
-void set_error (int cur, int line)
-{
-    lcd.setCursor(cur, line);
-    lcd.print("Err");
-}
-
-////////////////////////////////////////////////////////////////////////////////
-
-void fill_data(float temp_in, float temp_out, float humid_in, float humid_out, int32_t pressure)
-{
-    char buff[8];
-
-/*
- 01234567890123456789
-+--------------------+
-|In:  Err °C  Err% RH|
-|Out:-20.5°C  100% RH|
-|   Press: 1013.9 hPa|
-|17:34:59  31.12.2017|
-+--------------------+
- */
-
-    // Temp inside
-    if (temp_in >= err_val) {
-        set_error(5, 0);
-    }
-    else {
-        lcd.setCursor(4, 0);
-        dtostrf(temp_in, 5, 1, buff);
-        lcd.print(buff);
-    }
-
-    // Humid inside
-    if (humid_in >= err_val) {
-        set_error(13, 0);
-    }
-    else {
-        lcd.setCursor(13, 0);
-        dtostrf(humid_in, 3, 0, buff);
-        lcd.print(buff);
-    }
-
-    // Temp outside
-    if (temp_out >= err_val) {
-        set_error(5, 1);
-    }
-    else {
-        lcd.setCursor(4, 1);
-        dtostrf(temp_out, 5, 1, buff);
-        lcd.print(buff);
-    }
-
-    // Humid outside
-    if (humid_out >= err_val) {
-        set_error(13, 1);
-    }
-    else {
-        lcd.setCursor(13, 1);
-        dtostrf(humid_out, 3, 0, buff);
-        lcd.print(buff);
-    }
-
-    // Pressure
-    lcd.setCursor(10, 2);
-    dtostrf(pressure/100.0, 6, 1, buff);
-    lcd.print(buff);
-}
-
-////////////////////////////////////////////////////////////////////////////////
+//                TIME SETUP
 
 /* implements hysteresis */
 bool was_button_pressed (unsigned pin)
@@ -439,8 +283,6 @@ bool was_button_pressed (unsigned pin)
     }
     return false;
 }
-
-////////////////////////////////////////////////////////////////////////////////
 
 /* check if should enter the time_setup finction */
 bool enter_time_setup()
@@ -464,8 +306,6 @@ bool enter_time_setup()
 
     return false;
 }
-
-////////////////////////////////////////////////////////////////////////////////
 
 void time_setup(unsigned line)
 {
@@ -568,6 +408,169 @@ void time_setup(unsigned line)
     lcd.noBlink();
 }
 
+
+////////////////////////////////////////////////////////////////////////////////
+//                PRINT TIME
+
+/* returns time-date string via param from rtc.
+ * rtc should be at least 21 bytes long.
+ */
+void print_time_string(unsigned row)
+{
+
+    static byte last_second;
+    if (last_second == rtc.getSecond()) {
+        // No update needed
+        return;
+    }
+
+    //print_clock(); // Optional
+
+    bool tmp1 = false;
+    bool tmp2 = false;
+
+    char str[21];
+    byte ret;
+
+    /*
+     * 01234567890123456789
+     * 17:34:59  31.12.2017
+     */
+
+    // hour
+    ret = rtc.getHour(tmp1, tmp2);
+    str[0] = ret / 10;
+    str[1] = ret % 10;
+
+    str[2] = ':';
+
+    // minute
+    ret = rtc.getMinute();
+    str[3] = ret / 10;
+    str[4] = ret % 10;
+
+    str[5] = ':';
+
+    // second
+    ret = last_second;
+    str[6] = ret / 10;
+    str[7] = ret % 10;
+
+    str[8] = ' ';
+    str[9] = ' ';
+
+    // day
+    ret = rtc.getDate();
+    str[10] = ret / 10;
+    str[11] = ret % 10;
+
+    str[12] = '.';
+
+    // month
+    ret = rtc.getMonth(tmp1);
+    str[13] = ret / 10;
+    str[14] = ret % 10;
+
+    str[15] = '.';
+
+    // year - only last two digits
+    ret = rtc.getYear();
+    str[16] = '2';
+    str[17] = '0';
+    str[18] = ret / 10;
+    str[19] = ret % 10;
+
+    // end of string
+    str[20] = '\0';
+
+    lcd.setCursor(0, row);
+    lcd.print(str);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+//                DISPLAY TEMPLATE
+
+void draw_template()
+{
+    lcd.setCursor(0, 0);
+    lcd.print("In:      °C     % RH");
+    lcd.setCursor(0, 1);
+    lcd.print("Out:     °C     % RH");
+    lcd.setCursor(0, 2);
+    lcd.print("             Err hPa");
+    lcd.setCursor(0, 3);
+    lcd.print("                    ");
+}
+
+////////////////////////////////////////////////////////////////////////////////
+//                GET AND PRINT METEO DATA
+
+void set_error (int cur, int line)
+{
+    lcd.setCursor(cur, line);
+    lcd.print("Err");
+}
+
+void fill_data(float temp_in, float temp_out, float humid_in, float humid_out, int32_t pressure)
+{
+    char buff[8];
+
+/*
+ 01234567890123456789
++--------------------+
+|In:  Err °C  Err% RH|
+|Out:-20.5°C  100% RH|
+|          1013.9 hPa|
+|17:34:59  31.12.2017|
++--------------------+
+ */
+
+    // Temp inside
+    if (temp_in >= err_val) {
+        set_error(5, 0);
+    }
+    else {
+        lcd.setCursor(4, 0);
+        dtostrf(temp_in, 5, 1, buff);
+        lcd.print(buff);
+    }
+
+    // Humid inside
+    if (humid_in >= err_val) {
+        set_error(13, 0);
+    }
+    else {
+        lcd.setCursor(13, 0);
+        dtostrf(humid_in, 3, 0, buff);
+        lcd.print(buff);
+    }
+
+    // Temp outside
+    if (temp_out >= err_val) {
+        set_error(5, 1);
+    }
+    else {
+        lcd.setCursor(4, 1);
+        dtostrf(temp_out, 5, 1, buff);
+        lcd.print(buff);
+    }
+
+    // Humid outside
+    if (humid_out >= err_val) {
+        set_error(13, 1);
+    }
+    else {
+        lcd.setCursor(13, 1);
+        dtostrf(humid_out, 3, 0, buff);
+        lcd.print(buff);
+    }
+
+    // Pressure
+    lcd.setCursor(10, 2);
+    dtostrf(pressure/100.0, 6, 1, buff);
+    lcd.print(buff);
+}
+
 void read_meteo_data(float &temp_in,  float &humid_in,
                      float &temp_out, float &humid_out,
                      int32_t &pressure)
@@ -636,7 +639,9 @@ void read_meteo_data(float &temp_in,  float &humid_in,
     LOG("Pressuren: "); LOGLN(pressure);
 }
 
+
 ////////////////////////////////////////////////////////////////////////////////
+//                ARDUINO SETUP
 
 void setup ()
 {
@@ -695,6 +700,7 @@ void setup ()
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+//                MAIN LOOP
 
 void loop ()
 {
