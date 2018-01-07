@@ -376,42 +376,60 @@ void time_setup(unsigned line)
                 if (val > 23) val = 0;
                 rtc.setHour(val);
                 lcd.setCursor(0, line);
+                if (val < 10)
+                    lcd.print(0);
                 lcd.print(val);
+                lcd.setCursor(0, line);
                 break;
             case 1:
                 if (val < 0)  val = 59;
                 if (val > 59) val = 0;
                 rtc.setMinute(val);
                 lcd.setCursor(3, line);
+                if (val < 10)
+                    lcd.print(0);
                 lcd.print(val);
+                lcd.setCursor(3, line);
                 break;
             case 2:
                 if (val < 0)  val = 59;
                 if (val > 59) val = 0;
                 rtc.setSecond(val);
                 lcd.setCursor(6, line);
+                if (val < 10)
+                    lcd.print(0);
                 lcd.print(val);
+                lcd.setCursor(6, line);
                 break;
             case 3:
                 if (val < 0)  val = 31; // this allows to set 31.02 as a date
                 if (val > 31) val = 0;
                 rtc.setDate(val);
                 lcd.setCursor(10, line);
+                if (val < 10)
+                    lcd.print(0);
                 lcd.print(val);
+                lcd.setCursor(10, line);
                 break;
             case 4:
                 if (val < 0)  val = 12;
                 if (val > 12) val = 0;
                 rtc.setDate(val);
-                lcd.setCursor(16, line);
+                lcd.setCursor(13, line);
+                if (val < 10)
+                    lcd.print(0);
                 lcd.print(val);
+                lcd.setCursor(13, line);
                 break;
             case 5:
                 if (val < 0)  val = 99;
                 if (val > 99) val = 0;
                 rtc.setYear(val);
                 lcd.setCursor(18, line);
+                if (val < 10)
+                    lcd.print(0);
                 lcd.print(val);
+                lcd.setCursor(18, line);
                 break;
             default: break;
         }
@@ -745,23 +763,15 @@ void loop ()
     if (enter_time_setup())
         time_setup(3 /* 4th row */);
 
-    // Update meteo data after every 'meteo_delay' time
-    if (delay_counter == 0) {
-        float temp_in, humid_in, temp_out, humid_out;
-        int32_t pressure;
+    // Update meteo data
+    float temp_in, humid_in, temp_out, humid_out;
+    int32_t pressure;
 
-        read_meteo_data(temp_in, humid_in, temp_out, humid_out, pressure);
-//        draw_template();
-        fill_data(temp_in, temp_out, humid_in, humid_out, pressure);
-    }
-
-    // update delay_counter
-    delay_counter = (delay_counter + 1) % (meteo_delay / delay_time);
-
+    read_meteo_data(temp_in, humid_in, temp_out, humid_out, pressure);
+    fill_data(temp_in, temp_out, humid_in, humid_out, pressure);
 
     // Update the displayed time
     print_time_string(3 /* 4th row */);
-
 
     LOG("delay "); LOGLN(delay_time);
     //delay(delay_time);
