@@ -64,7 +64,7 @@ Display configuration
 DHT dht_in(DHT_IN_PIN, DHT_IN_TYPE);
 
 // Temp + Humidity outside
-#define DHT_OUT_PIN  2
+#define DHT_OUT_PIN  4
 #define DHT_OUT_TYPE DHT22
 DHT dht_out(DHT_OUT_PIN, DHT_OUT_TYPE);
 
@@ -352,7 +352,7 @@ void time_setup(unsigned line)
             change = -1;
         if (was_button_pressed(BUTTON_OK)) {
             pos++;
-            switch (val) {
+            switch (pos) {
                 case 1: val = rtc.getMinute();    lcd.setCursor(3, line);  break;
                 case 2: val = rtc.getSecond();    lcd.setCursor(6, line);  break;
                 case 3: val = rtc.getDate();      lcd.setCursor(10, line); break;
@@ -360,7 +360,7 @@ void time_setup(unsigned line)
                 case 5: val = rtc.getYear();      lcd.setCursor(18, line); break;
                 default: break;
             }
-            if (val > 5) { //exit setup function
+            if (pos > 5) { //exit setup function
               break;
             }
             continue;
@@ -435,8 +435,10 @@ void print_time_string(unsigned row)
     static byte last_second;
     if (last_second == rtc.getSecond()) {
         // No update needed
+        LOGLN("RTC No update needed");
         return;
     }
+    last_second = rtc.getSecond();
 
     //print_clock(); // Optional
 
@@ -453,37 +455,37 @@ void print_time_string(unsigned row)
 
     // hour
     ret = rtc.getHour(tmp1, tmp2);
-    str[0] = ret / 10;
-    str[1] = ret % 10;
+    str[0] = ret / 10 + ('0');
+    str[1] = ret % 10 + ('0');
 
     str[2] = ':';
 
     // minute
     ret = rtc.getMinute();
-    str[3] = ret / 10;
-    str[4] = ret % 10;
+    str[3] = ret / 10 + ('0');
+    str[4] = ret % 10 + ('0');
 
     str[5] = ':';
 
     // second
     ret = last_second;
-    str[6] = ret / 10;
-    str[7] = ret % 10;
+    str[6] = ret / 10 + ('0');
+    str[7] = ret % 10 + ('0');
 
     str[8] = ' ';
     str[9] = ' ';
 
     // day
     ret = rtc.getDate();
-    str[10] = ret / 10;
-    str[11] = ret % 10;
+    str[10] = ret / 10 + ('0');
+    str[11] = ret % 10 + ('0');
 
     str[12] = '.';
 
     // month
     ret = rtc.getMonth(tmp1);
-    str[13] = ret / 10;
-    str[14] = ret % 10;
+    str[13] = ret / 10 + ('0');
+    str[14] = ret % 10 + ('0');
 
     str[15] = '.';
 
@@ -491,12 +493,13 @@ void print_time_string(unsigned row)
     ret = rtc.getYear();
     str[16] = '2';
     str[17] = '0';
-    str[18] = ret / 10;
-    str[19] = ret % 10;
+    str[18] = ret / 10 + ('0');
+    str[19] = ret % 10 + ('0');
 
     // end of string
     str[20] = '\0';
 
+    LOGLN(str);
     lcd.setCursor(0, row);
     lcd.print(str);
 }
@@ -507,11 +510,23 @@ void print_time_string(unsigned row)
 void draw_template()
 {
     lcd.setCursor(0, 0);
-    lcd.print("In:      °C     % RH");
+    lcd.print("In:      ");
+    lcd.print((char)223);
+    lcd.print("C     ");
+    lcd.print((char)37);
+    lcd.print(" RH");
+
     lcd.setCursor(0, 1);
-    lcd.print("Out:     °C     % RH");
+    lcd.print("Out:     ");
+    lcd.print((char)223);
+    lcd.print("C     ");
+    lcd.print((char)37);
+    lcd.print(" RH");
+
+
     lcd.setCursor(0, 2);
     lcd.print("             Err hPa");
+
     lcd.setCursor(0, 3);
     lcd.print("                    ");
 }
@@ -519,10 +534,15 @@ void draw_template()
 ////////////////////////////////////////////////////////////////////////////////
 //                GET AND PRINT METEO DATA
 
-void set_error (int cur, int line)
+void set_error (int cur, int line, bool empty_char_after = false)
 {
     lcd.setCursor(cur, line);
-    lcd.print("Err");
+    if (empty_char_after) {
+        lcd.print("Err ");
+    }
+    else {
+        lcd.print("Err");
+    }
 }
 
 void fill_data(float temp_in, float temp_out, float humid_in, float humid_out, int32_t pressure)
@@ -541,7 +561,7 @@ void fill_data(float temp_in, float temp_out, float humid_in, float humid_out, i
 
     // Temp inside
     if (temp_in >= err_val) {
-        set_error(5, 0);
+        set_error(5, 0, true);
     }
     else {
         lcd.setCursor(4, 0);
@@ -561,7 +581,7 @@ void fill_data(float temp_in, float temp_out, float humid_in, float humid_out, i
 
     // Temp outside
     if (temp_out >= err_val) {
-        set_error(5, 1);
+        set_error(5, 1, true);
     }
     else {
         lcd.setCursor(4, 1);
@@ -673,7 +693,7 @@ void setup ()
     pinMode(BUTTON_DOWN, INPUT_PULLUP);
 
     // Configure RTC
-    rtc.enableOscillator(true /* ON */,
+    rtc.enableOscillator(false /* ON */,
                         false /* disabled if batery-only powered */,
                         0 /* freq: 1Hz */);
     rtc.enable32kHz(false);
@@ -695,7 +715,7 @@ void setup ()
     lcd.print("wersja D_0.1");
 
     // Sleep for setup dht sensors
-    delay(2000);
+    delay(4000);
 
     // Temperature and humidity sensor
     dht_in.begin();
@@ -710,6 +730,7 @@ void setup ()
         digitalWrite(DEBUG_LED, LOW);
     }
 
+    draw_template();
     LOGLN("Setup end");
 }
 
@@ -730,7 +751,7 @@ void loop ()
         int32_t pressure;
 
         read_meteo_data(temp_in, humid_in, temp_out, humid_out, pressure);
-        draw_template();
+//        draw_template();
         fill_data(temp_in, temp_out, humid_in, humid_out, pressure);
     }
 
@@ -743,6 +764,6 @@ void loop ()
 
 
     LOG("delay "); LOGLN(delay_time);
-    delay(delay_time);
+    //delay(delay_time);
 }
 
