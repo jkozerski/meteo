@@ -654,7 +654,6 @@ void read_meteo_data(float &temp_in,  float &humid_in,
     if (isnan(temp_in)) {
         // blink LED on error
         LOGLN("temp_in is NaN");
-        error_blink(1);
         temp_in = err_val; //ERR
     }
     else {
@@ -667,7 +666,6 @@ void read_meteo_data(float &temp_in,  float &humid_in,
     if (isnan(temp_out)) {
         // blink LED on error
         LOGLN("temp_out is NaN");
-        error_blink(1);
         temp_out = err_val; //ERR
     }
     else {
@@ -680,7 +678,6 @@ void read_meteo_data(float &temp_in,  float &humid_in,
     if(isnan(humid_in)) {
         // blink LED on error
         LOGLN("humid_in is NaN");
-        error_blink(1);
         humid_in = err_val; //ERR
     }
     else {
@@ -693,7 +690,6 @@ void read_meteo_data(float &temp_in,  float &humid_in,
     if(isnan(humid_out)) {
         // blink LED on error
         LOGLN("humid_out is NaN");
-        error_blink(1);
         humid_out = err_val; //ERR
     }
     else {
@@ -704,6 +700,40 @@ void read_meteo_data(float &temp_in,  float &humid_in,
     // ##### Pressure #####
     // Nothing to do here
     LOG("Pressure: "); LOGLN(pressure);
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+//                BACKLIGHT BUTTONS
+
+void backlight_buttons()
+{
+    static byte off_time;
+    static bool should_off;
+
+    // This may cause that we miss off_time and the backlight will stay on.
+    // This may happend beause of some "lag" from sensors, or user witl use
+    // DOWN+UP+OK buttons to set time;
+    // Anyway it's not a big issue. Backlight will be off eventually.
+    // User can always turn it off manually by pushing DOWN button.
+    if (should_off && off_time == rtc.getSecond()) {
+        lcd.noBacklight();
+        should_off = false;
+    }
+
+    if (was_button_pressed(BUTTON_UP)) {
+        lcd.backlight();
+	return;
+    }
+    if (was_button_pressed(BUTTON_DOWN)) {
+        lcd.noBacklight();
+	return;
+    }
+    else if (was_button_pressed(BUTTON_OK)) {
+        lcd.backlight();
+        off_time = (rtc.getSecond() + 4) % 60;
+        should_off = true;
+    }
 }
 
 
@@ -747,7 +777,7 @@ void setup ()
     lcd.setCursor(7, 2);
     lcd.print("wersja D_0.2");
 
-    // Sleep for setup dht sensors
+    // Sleep for setup dht sensors - just in case. This also gives you time to read te welcome screen.
     delay(4000);
 
     // Temperature and humidity sensor
@@ -757,12 +787,10 @@ void setup ()
     // Pressure sensor
     if (!bmp.begin(3)) { // init pressure sensor with high precission param - 3
         LOGLN("Cannot initalize BMP (pressure) sensor");
-        error_blink(5);
         digitalWrite(DEBUG_LED, HIGH); // if error turn debug LED on
-        delay(5000);
-        digitalWrite(DEBUG_LED, LOW);
     }
 
+    // Draw template - Labels and units.
     draw_template();
     LOGLN("Setup end");
 }
@@ -777,17 +805,8 @@ void loop ()
     if (enter_time_setup())
         time_setup(3 /* 4th row */);
 
-    if (was_button_pressed(BUTTON_UP)) {
-        lcd.backlight();
-    }
-    else if (was_button_pressed(BUTTON_DOWN)) {
-        lcd.noBacklight();
-    }
-    else if (was_button_pressed(BUTTON_OK)) {
-        lcd.backlight();
-	delay(4000);
-        lcd.noBacklight();
-    }
+    // Support backlight buttons
+    backlight_buttons();
 
     // Update meteo data
     float temp_in, humid_in, temp_out, humid_out;
