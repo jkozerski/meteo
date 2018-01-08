@@ -291,10 +291,10 @@ bool was_button_pressed (unsigned pin)
     const int default_state = HIGH; /*assume that button is pull-up*/
 
     if (digitalRead(pin) != default_state) {
-        delay(50); /*ms*/
+        delay(20); /*ms*/
         if (digitalRead(pin) != default_state) {
             do {} while (digitalRead(pin) == !default_state); // wait for button releases
-            delay(50);
+            delay(20);
             return true;
         }
     }
@@ -546,12 +546,13 @@ void draw_template()
 
 
     lcd.setCursor(0, 2);
-    if (show_dew_point)
+    lcd.print("                 hPa");
+    if (show_dew_point) {
+      lcd.setCursor(0, 2);
         lcd.print("DP:   ");
-    else
-        lcd.print("      ");
-    lcd.print((char)223); // '°'
-    lcd.print("C         hPa");
+        lcd.print((char)223); // '°'
+        lcd.print("C");
+    }
 
     lcd.setCursor(0, 3);
     lcd.print("                    ");
@@ -800,6 +801,8 @@ void setup ()
 
 void loop ()
 {
+    static byte iter;
+    iter = iter + 1;
     LOGLN("Loop");
 
     if (enter_time_setup())
@@ -809,14 +812,16 @@ void loop ()
     backlight_buttons();
 
     // Update meteo data
-    float temp_in, humid_in, temp_out, humid_out;
-    int32_t pressure;
+    if (!iter) {
+        float temp_in, humid_in, temp_out, humid_out;
+        int32_t pressure;
 
-    read_meteo_data(temp_in, humid_in, temp_out, humid_out, pressure);
-    fill_data(temp_in, temp_out, humid_in, humid_out, pressure);
+        read_meteo_data(temp_in, humid_in, temp_out, humid_out, pressure);
+        fill_data(temp_in, temp_out, humid_in, humid_out, pressure);
+    }
 
     // Clock icon - optional. Only if show_dew_point is disabled
-    // print_clock()
+    //print_clock();
 
     // Update the displayed time
     print_time_string(3 /* 4th row */);
