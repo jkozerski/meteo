@@ -41,10 +41,10 @@ Display configuration
  01234567890123456789
 +--------------------+
 |In:  Err °C  Err% RH|
-|In: -20.5°C  100% RH|
-|Out:-20.5°C  100% RH|
-|             Err hPa|
-|          1013.9 hPa|
+|In: -20.5°C   100%RH|
+|Out:-20.5°C   100%RH|
+|DP:-70°C  1013.9 hPa|
+|DP: 70°C     Err hPa|
 |17:34:59  31.12.2017|
 +--------------------+
  */
@@ -80,14 +80,11 @@ LiquidCrystal_I2C lcd(0x27, 20, 4);  // set the LCD address to 0x27 for a 20 cha
 // Real-time clock
 DS3231 rtc;
 
-
-// Delay
-const int32_t delay_time = 100; // [ms]
-const int32_t meteo_delay = 2000; // [ms] Update meteo data every 2s
-int32_t delay_counter = 0;
-
 // Error value
 const int32_t err_val = 200000;
+
+// Show dew point or clock icon or none? (No place for both)
+bool show_dew_point = true;
 
 ////////////////////////////////////////////////////////////////////////////////
 //                DEW POINT SUPPORT
@@ -272,8 +269,14 @@ void print_clock_char(byte c)
 
 void print_clock()
 {
-    static byte iter;
+    static byte last_second;
+    if (last_second == rtc.getSecond()) {
+        // No update needed
+        return;
+    }
+    last_second = rtc.getSecond();
 
+    static byte iter;
     iter = (iter + 1) % 8;
     print_clock_char(iter);
 }
@@ -334,7 +337,7 @@ void time_setup(unsigned line)
      * 6 - exit;
     */
 
-    byte val;
+    int val;
     int change = 0;
     bool tmp1, tmp2;
 
@@ -529,21 +532,26 @@ void draw_template()
 {
     lcd.setCursor(0, 0);
     lcd.print("In:      ");
-    lcd.print((char)223);
+    lcd.print((char)223); // '°'
     lcd.print("C     ");
-    lcd.print((char)37);
+    lcd.print((char)37); // '%'
     lcd.print(" RH");
 
     lcd.setCursor(0, 1);
     lcd.print("Out:     ");
-    lcd.print((char)223);
+    lcd.print((char)223); // '°'
     lcd.print("C     ");
-    lcd.print((char)37);
+    lcd.print((char)37); // '%'
     lcd.print(" RH");
 
 
     lcd.setCursor(0, 2);
-    lcd.print("             Err hPa");
+    if (show_dew_point)
+        lcd.print("DP:   ");
+    else
+        lcd.print("      ");
+    lcd.print((char)223); // '°'
+    lcd.print("C         hPa");
 
     lcd.setCursor(0, 3);
     lcd.print("                    ");
@@ -552,11 +560,11 @@ void draw_template()
 ////////////////////////////////////////////////////////////////////////////////
 //                GET AND PRINT METEO DATA
 
-void set_error (int cur, int line, bool empty_char_after = false)
+void set_error (int cur, int line, bool empty_chars = false)
 {
     lcd.setCursor(cur, line);
-    if (empty_char_after) {
-        lcd.print("Err ");
+    if (empty_chars) {
+        lcd.print(" Err ");
     }
     else {
         lcd.print("Err");
@@ -572,14 +580,14 @@ void fill_data(float temp_in, float temp_out, float humid_in, float humid_out, i
 +--------------------+
 |In:  Err °C  Err% RH|
 |Out:-20.5°C  100% RH|
-|          1013.9 hPa|
+|DP:-70°C  1013.9 hPa|
 |17:34:59  31.12.2017|
 +--------------------+
  */
 
     // Temp inside
     if (temp_in >= err_val) {
-        set_error(5, 0, true);
+        set_error(4, 0, true);
     }
     else {
         lcd.setCursor(4, 0);
@@ -599,7 +607,7 @@ void fill_data(float temp_in, float temp_out, float humid_in, float humid_out, i
 
     // Temp outside
     if (temp_out >= err_val) {
-        set_error(5, 1, true);
+        set_error(4, 1, true);
     }
     else {
         lcd.setCursor(4, 1);
@@ -621,6 +629,13 @@ void fill_data(float temp_in, float temp_out, float humid_in, float humid_out, i
     lcd.setCursor(10, 2);
     dtostrf(pressure/100.0, 6, 1, buff);
     lcd.print(buff);
+
+    // Dew point
+    if (show_dew_point) {
+        lcd.setCursor(3, 2);
+        dtostrf(get_dew_point(temp_out, humid_out), 3, 0, buff);
+        lcd.print(buff);
+    }
 }
 
 void read_meteo_data(float &temp_in,  float &humid_in,
@@ -688,7 +703,7 @@ void read_meteo_data(float &temp_in,  float &humid_in,
 
     // ##### Pressure #####
     // Nothing to do here
-    LOG("Pressuren: "); LOGLN(pressure);
+    LOG("Pressure: "); LOGLN(pressure);
 }
 
 
@@ -719,7 +734,7 @@ void setup ()
 
     // LCD
     lcd.init();
-    //print_clock_setup(); // Optional
+    print_clock_setup(); // Can be disabled if print_clock() isn't used
 
     lcd.backlight();
     //lcd.noBacklight();
@@ -758,10 +773,21 @@ void setup ()
 void loop ()
 {
     LOGLN("Loop");
-//    error_blink(1);
 
     if (enter_time_setup())
         time_setup(3 /* 4th row */);
+
+    if (was_button_pressed(BUTTON_UP)) {
+        lcd.backlight();
+    }
+    else if (was_button_pressed(BUTTON_DOWN)) {
+        lcd.noBacklight();
+    }
+    else if (was_button_pressed(BUTTON_OK)) {
+        lcd.backlight();
+	delay(4000);
+        lcd.noBacklight();
+    }
 
     // Update meteo data
     float temp_in, humid_in, temp_out, humid_out;
@@ -770,10 +796,10 @@ void loop ()
     read_meteo_data(temp_in, humid_in, temp_out, humid_out, pressure);
     fill_data(temp_in, temp_out, humid_in, humid_out, pressure);
 
+    // Clock icon - optional. Only if show_dew_point is disabled
+    // print_clock()
+
     // Update the displayed time
     print_time_string(3 /* 4th row */);
-
-    LOG("delay "); LOGLN(delay_time);
-    //delay(delay_time);
 }
 
