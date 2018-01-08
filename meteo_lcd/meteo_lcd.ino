@@ -745,7 +745,7 @@ void setup ()
     lcd.setCursor(1, 1);
     lcd.print("Stacja pogodowa");
     lcd.setCursor(7, 2);
-    lcd.print("wersja D_0.1");
+    lcd.print("wersja D_0.2");
 
     // Sleep for setup dht sensors
     delay(4000);
