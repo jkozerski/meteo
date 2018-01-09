@@ -80,6 +80,14 @@ LiquidCrystal_I2C lcd(0x27, 20, 4);  // set the LCD address to 0x27 for a 20 cha
 // Real-time clock
 DS3231 rtc;
 
+
+// Time format
+// 01234567890123456789
+// 00:00:00  31.12.2017
+char time_format[21] = "17:34:59  31.12.2017";
+void print_time_string(unsigned row, bool full_update = false);
+
+
 // Error value
 const int32_t err_val = 200000;
 
@@ -405,8 +413,8 @@ void time_setup(unsigned line)
                 lcd.setCursor(6, line);
                 break;
             case 3:
-                if (val < 0)  val = 31; // this allows to set 31.02 as a date
-                if (val > 31) val = 0;
+                if (val < 1)  val = 31; // this allows to set 31.02 as a date
+                if (val > 31) val = 1;
                 rtc.setDate(val);
                 lcd.setCursor(10, line);
                 if (val < 10)
@@ -415,8 +423,8 @@ void time_setup(unsigned line)
                 lcd.setCursor(10, line);
                 break;
             case 4:
-                if (val < 0)  val = 12;
-                if (val > 12) val = 0;
+                if (val < 1)  val = 12;
+                if (val > 12) val = 1;
                 rtc.setDate(val);
                 lcd.setCursor(13, line);
                 if (val < 10)
@@ -441,17 +449,25 @@ void time_setup(unsigned line)
 
     lcd.noCursor();
     lcd.noBlink();
+
+    // Full time update
+    print_time_string(3 /* 4th row */, true);
 }
 
 
 ////////////////////////////////////////////////////////////////////////////////
 //                PRINT TIME
 
-/* returns time-date string via param from rtc.
- * rtc should be at least 21 bytes long.
+/*
+ * Prints time-date string in global char time_format[]
+ * Does an update/printing only when needed
  */
-void print_time_string(unsigned row)
+void print_time_string(unsigned row, bool full_update)
 {
+    /*
+     * 01234567890123456789
+     * 17:34:59  31.12.2017
+     */
 
     static byte last_second;
     if (last_second == rtc.getSecond()) {
@@ -463,66 +479,55 @@ void print_time_string(unsigned row)
 
     //print_clock(); // Optional
 
-    bool tmp1 = false;
-    bool tmp2 = false;
-
-    char str[21];
     byte ret;
-
-    /*
-     * 01234567890123456789
-     * 17:34:59  31.12.2017
-     */
-
-    // hour
-    ret = rtc.getHour(tmp1, tmp2);
-    str[0] = ret / 10 + ('0');
-    str[1] = ret % 10 + ('0');
-
-    str[2] = ':';
-
-    // minute
-    ret = rtc.getMinute();
-    str[3] = ret / 10 + ('0');
-    str[4] = ret % 10 + ('0');
-
-    str[5] = ':';
+    bool tmp1, tmp2;
 
     // second
     ret = last_second;
-    str[6] = ret / 10 + ('0');
-    str[7] = ret % 10 + ('0');
+    time_format[6] = ret / 10 + ('0');
+    time_format[7] = ret % 10 + ('0');
 
-    str[8] = ' ';
-    str[9] = ' ';
+    if (ret != 0 && !full_update)
+	goto end;
+
+    // minute
+    ret = rtc.getMinute();
+    time_format[3] = ret / 10 + ('0');
+    time_format[4] = ret % 10 + ('0');
+
+    if (ret != 0 && !full_update)
+	goto end;
+
+    // hour
+    ret = rtc.getHour(tmp1, tmp2);
+    time_format[0] = ret / 10 + ('0');
+    time_format[1] = ret % 10 + ('0');
+
+    if (ret != 0 && !full_update)
+	goto end;
+
+    // Update all date string - very little optimization gain
 
     // day
     ret = rtc.getDate();
-    str[10] = ret / 10 + ('0');
-    str[11] = ret % 10 + ('0');
-
-    str[12] = '.';
+    time_format[10] = ret / 10 + ('0');
+    time_format[11] = ret % 10 + ('0');
 
     // month
     ret = rtc.getMonth(tmp1);
-    str[13] = ret / 10 + ('0');
-    str[14] = ret % 10 + ('0');
-
-    str[15] = '.';
+    time_format[13] = ret / 10 + ('0');
+    time_format[14] = ret % 10 + ('0');
 
     // year - only last two digits
     ret = rtc.getYear();
-    str[16] = '2';
-    str[17] = '0';
-    str[18] = ret / 10 + ('0');
-    str[19] = ret % 10 + ('0');
 
-    // end of string
-    str[20] = '\0';
+    time_format[18] = ret / 10 + ('0');
+    time_format[19] = ret % 10 + ('0');
 
-    LOGLN(str);
+end:
+    LOGLN(time_format);
     lcd.setCursor(0, row);
-    lcd.print(str);
+    lcd.print(time_format);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -793,6 +798,9 @@ void setup ()
 
     // Draw template - Labels and units.
     draw_template();
+
+    // Full time update
+    print_time_string(3 /* 4th row */, true);
     LOGLN("Setup end");
 }
 
@@ -801,8 +809,8 @@ void setup ()
 
 void loop ()
 {
-    static byte iter;
-    iter = iter + 1;
+    static unsigned long lastTime;
+    unsigned long timeNow = millis();
     LOGLN("Loop");
 
     if (enter_time_setup())
@@ -812,16 +820,16 @@ void loop ()
     backlight_buttons();
 
     // Update meteo data
-    if (!iter) {
+    if (timeNow - lastTime > 1000) {
+        lastTime = timeNow;
+        digitalWrite(DEBUG_LED, HIGH);
         float temp_in, humid_in, temp_out, humid_out;
         int32_t pressure;
 
         read_meteo_data(temp_in, humid_in, temp_out, humid_out, pressure);
         fill_data(temp_in, temp_out, humid_in, humid_out, pressure);
+        digitalWrite(DEBUG_LED, LOW);
     }
-
-    // Clock icon - optional. Only if show_dew_point is disabled
-    //print_clock();
 
     // Update the displayed time
     print_time_string(3 /* 4th row */);
