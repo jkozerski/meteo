@@ -155,16 +155,17 @@ int8_t dew_point[41][21] = {
 
 
 /*
- * Return a dew point for temperatures in range -30°C up to +70°C.
+ * Return a dew point for temperatures in range -30°C up to +50°C.
  * Humidity should be from 0 up to 100%.
  * Functions returns esimated dew point in °C
+ * Returns 100 as an error - Temperature beyond the scale.
  */
 int8_t get_dew_point (float temp, float humid)
 {
     if (temp < -31.0 || temp > 50)
-        return 0;
+        return 100; // treat it as an error.
 
-    int temp_idx = (temp + 31.0)/2;
+    int temp_idx = 40-(temp + 31.0)/2;
     if (temp_idx < 0) temp_idx = 0;
     if (temp_idx > 40) temp_idx = 40;
 
@@ -639,7 +640,16 @@ void fill_data(float temp_in, float temp_out, float humid_in, float humid_out, i
     // Dew point
     if (show_dew_point) {
         lcd.setCursor(3, 2);
-        dtostrf(get_dew_point(temp_out, humid_out), 3, 0, buff);
+        int8_t ret = get_dew_point(temp_out, humid_out);
+        if (ret != 100) {
+            dtostrf(get_dew_point(temp_out, humid_out), 3, 0, buff);
+        }
+        else {
+            buff[0] = 'N';
+            buff[1] = (char)47; // '/'
+            buff[2] = 'A';
+            buff[3] = '\0';
+        }
         lcd.print(buff);
     }
 }
