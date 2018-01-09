@@ -85,7 +85,7 @@ DS3231 rtc;
 // 01234567890123456789
 // 00:00:00  31.12.2017
 char time_format[21] = "17:34:59  31.12.2017";
-void print_time_string(unsigned row, bool full_update = false);
+bool print_time_string(unsigned row, bool full_update = false);
 
 
 // Error value
@@ -165,11 +165,11 @@ int8_t get_dew_point (float temp, float humid)
     if (temp < -31.0 || temp > 50)
         return 100; // treat it as an error.
 
-    int temp_idx = 40-(temp + 31.0)/2;
+    int temp_idx = 40 - (temp + 30.0)/2;
     if (temp_idx < 0) temp_idx = 0;
     if (temp_idx > 40) temp_idx = 40;
 
-    int humid_idx = (humid+2.5)/5;
+    int humid_idx = (humid + 2.5)/5;
     if (humid_idx < 0) humid_idx = 0;
     if (humid_idx > 20) humid_idx = 20;
 
@@ -461,9 +461,10 @@ void time_setup(unsigned line)
 
 /*
  * Prints time-date string in global char time_format[]
- * Does an update/printing only when needed
+ * Does an update/printing only when needed and return true.
+ * Return false otherway.
  */
-void print_time_string(unsigned row, bool full_update)
+bool print_time_string(unsigned row, bool full_update)
 {
     /*
      * 01234567890123456789
@@ -474,7 +475,7 @@ void print_time_string(unsigned row, bool full_update)
     if (last_second == rtc.getSecond()) {
         // No update needed
         LOGLN("RTC No update needed");
-        return;
+        return false;
     }
     last_second = rtc.getSecond();
 
@@ -529,6 +530,7 @@ end:
     LOGLN(time_format);
     lcd.setCursor(0, row);
     lcd.print(time_format);
+    return true;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -819,8 +821,6 @@ void setup ()
 
 void loop ()
 {
-    static unsigned long lastTime;
-    unsigned long timeNow = millis();
     LOGLN("Loop");
 
     if (enter_time_setup())
@@ -829,9 +829,11 @@ void loop ()
     // Support backlight buttons
     backlight_buttons();
 
+    // Update the displayed time
+    //print_time_string(3 /* 4th row */);
+
     // Update meteo data
-    if (timeNow - lastTime > 1000) {
-        lastTime = timeNow;
+    if (print_time_string(3 /* 4th row */)) {
         digitalWrite(DEBUG_LED, HIGH);
         float temp_in, humid_in, temp_out, humid_out;
         int32_t pressure;
@@ -841,7 +843,6 @@ void loop ()
         digitalWrite(DEBUG_LED, LOW);
     }
 
-    // Update the displayed time
-    print_time_string(3 /* 4th row */);
+    
 }
 
