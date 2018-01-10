@@ -40,11 +40,16 @@ Display configuration
 
  01234567890123456789
 +--------------------+
-|In:  Err °C  Err% RH|
-|In: -20.5°C   100%RH|
-|Out:-20.5°C   100%RH|
+|In:  50.5°C  100% RH|
+|Out:-20.5°C  100% RH|
 |DP:-70°C  1013.9 hPa|
-|DP: 70°C     Err hPa|
+|17:34:59  31.12.2017|
++--------------------+
+
++--------------------+
+|In:  Err °C  Err% RH|
+|Out: Err °C  Err% RH|
+|DP:N/A°C     Err hPa|
 |17:34:59  31.12.2017|
 +--------------------+
  */
@@ -278,13 +283,6 @@ void print_clock_char(byte c)
 
 void print_clock()
 {
-    static byte last_second;
-    if (last_second == rtc.getSecond()) {
-        // No update needed
-        return;
-    }
-    last_second = rtc.getSecond();
-
     static byte iter;
     iter = (iter + 1) % 8;
     print_clock_char(iter);
@@ -590,9 +588,16 @@ void fill_data(float temp_in, float temp_out, float humid_in, float humid_out, i
 /*
  01234567890123456789
 +--------------------+
-|In:  Err °C  Err% RH|
+|In:  11.1°C   90% RH|
 |Out:-20.5°C  100% RH|
 |DP:-70°C  1013.9 hPa|
+|17:34:59  31.12.2017|
++--------------------+
+
++--------------------+
+|In:  Err °C  Err% RH|
+|Out: Err °C  Err% RH|
+|DP:N/A°C     Err hPa|
 |17:34:59  31.12.2017|
 +--------------------+
  */
@@ -673,7 +678,6 @@ void read_meteo_data(float &temp_in,  float &humid_in,
     // ##### Temperature inside #####
     // Check value
     if (isnan(temp_in)) {
-        // blink LED on error
         LOGLN("temp_in is NaN");
         temp_in = err_val; //ERR
     }
@@ -685,7 +689,6 @@ void read_meteo_data(float &temp_in,  float &humid_in,
     // ##### Temperature outside #####
     // Check value
     if (isnan(temp_out)) {
-        // blink LED on error
         LOGLN("temp_out is NaN");
         temp_out = err_val; //ERR
     }
@@ -697,7 +700,6 @@ void read_meteo_data(float &temp_in,  float &humid_in,
     // ##### Humidity inside #####
     // Check value
     if(isnan(humid_in)) {
-        // blink LED on error
         LOGLN("humid_in is NaN");
         humid_in = err_val; //ERR
     }
@@ -709,7 +711,6 @@ void read_meteo_data(float &temp_in,  float &humid_in,
     // ##### Humidity outside #####
     // Check value
     if(isnan(humid_out)) {
-        // blink LED on error
         LOGLN("humid_out is NaN");
         humid_out = err_val; //ERR
     }
@@ -733,7 +734,7 @@ void backlight_buttons()
     static bool should_off;
 
     // This may cause that we miss off_time and the backlight will stay on.
-    // This may happend beause of some "lag" from sensors, or user witl use
+    // This may happend beause of some "lag" from sensors, or user will use
     // DOWN+UP+OK buttons to set time;
     // Anyway it's not a big issue. Backlight will be off eventually.
     // User can always turn it off manually by pushing DOWN button.
@@ -752,7 +753,7 @@ void backlight_buttons()
     }
     else if (was_button_pressed(BUTTON_OK)) {
         lcd.backlight();
-        off_time = (rtc.getSecond() + 4) % 60;
+        off_time = (rtc.getSecond() + 10) % 60;
         should_off = true;
     }
 }
@@ -789,8 +790,8 @@ void setup ()
 
     lcd.backlight();
     //lcd.noBacklight();
-    //lcd.noCursor();
-    //lcd.noBlink()
+    lcd.noCursor();
+    lcd.noBlink();
     lcd.setCursor(5, 0);
     lcd.print("Witamy!");
     lcd.setCursor(1, 1);
@@ -833,10 +834,8 @@ void loop ()
     backlight_buttons();
 
     // Update the displayed time
-    //print_time_string(3 /* 4th row */);
-
-    // Update meteo data
     if (print_time_string(3 /* 4th row */)) {
+        // Update meteo data
         digitalWrite(DEBUG_LED, HIGH);
         float temp_in, humid_in, temp_out, humid_out;
         int32_t pressure;
