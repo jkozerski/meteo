@@ -530,7 +530,10 @@ end:
     LOGLN(time_format);
     lcd.setCursor(0, row);
     lcd.print(time_format);
-    return true;
+
+    // DHT22 sensor can refresh data every 1-2 seconds,
+    // so do the update every two second (odd second).
+    return last_second % 2;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
