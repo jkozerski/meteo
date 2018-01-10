@@ -730,31 +730,19 @@ void read_meteo_data(float &temp_in,  float &humid_in,
 
 void backlight_buttons()
 {
-    static byte off_time;
-    static bool should_off;
+    const int default_state = HIGH; /*assume that button is pull-up*/
 
-    // This may cause that we miss off_time and the backlight will stay on.
-    // This may happend beause of some "lag" from sensors, or user will use
-    // DOWN+UP+OK buttons to set time;
-    // Anyway it's not a big issue. Backlight will be off eventually.
-    // User can always turn it off manually by pushing DOWN button.
-    if (should_off && off_time == rtc.getSecond()) {
-        lcd.noBacklight();
-        should_off = false;
-    }
-
-    if (was_button_pressed(BUTTON_UP)) {
+    if (digitalRead(BUTTON_DOWN) == default_state &&
+        digitalRead(BUTTON_OK) == default_state &&
+        was_button_pressed(BUTTON_UP)) {
         lcd.backlight();
-	return;
+        return;
     }
-    if (was_button_pressed(BUTTON_DOWN)) {
+    if (digitalRead(BUTTON_UP) == default_state &&
+        digitalRead(BUTTON_OK) == default_state &&
+        was_button_pressed(BUTTON_DOWN)) {
         lcd.noBacklight();
-	return;
-    }
-    else if (was_button_pressed(BUTTON_OK)) {
-        lcd.backlight();
-        off_time = (rtc.getSecond() + 10) % 60;
-        should_off = true;
+        return;
     }
 }
 
