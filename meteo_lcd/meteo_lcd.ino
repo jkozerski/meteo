@@ -80,6 +80,7 @@ Adafruit_BMP085 bmp;
 
 // LCD Display
 LiquidCrystal_I2C lcd(0x27, 20, 4);  // set the LCD address to 0x27 for a 20 chars and 4 line display
+static bool LCD_backlight;
 
 
 // Real-time clock
@@ -732,16 +733,49 @@ void backlight_buttons()
 {
     const int default_state = HIGH; /*assume that button is pull-up*/
 
+    static byte off_time;
+    static bool should_off;
+
+    // This may cause that we miss off_time and the backlight will stay on.
+    // This may happend beause of some "lag" from sensors, or user will use
+    // DOWN+UP+OK buttons to set time;
+    // Anyway it's not a big issue. Backlight will be off eventually.
+    // User can always turn it off manually by pushing DOWN button.
+    if (should_off && off_time == rtc.getSecond()) {
+        lcd.noBacklight();
+        should_off = false;
+        LCD_backlight = false;
+    }
+
+    // BUTTON_UP
     if (digitalRead(BUTTON_DOWN) == default_state &&
         digitalRead(BUTTON_OK) == default_state &&
         was_button_pressed(BUTTON_UP)) {
+        if (LCD_backlight) {
+            // Do nothing
+            return;
+        }
         lcd.backlight();
+        LCD_backlight = true;
+        off_time = (rtc.getSecond() + 10) % 60;
+        should_off = true;
         return;
     }
+
+    // BUTTON_DOWN
     if (digitalRead(BUTTON_UP) == default_state &&
         digitalRead(BUTTON_OK) == default_state &&
         was_button_pressed(BUTTON_DOWN)) {
-        lcd.noBacklight();
+        if (LCD_backlight) {
+            lcd.noBacklight();
+            LCD_backlight = false;
+            should_off = false;
+        }
+        else {
+            lcd.backlight();
+            LCD_backlight = true;
+            should_off = false;
+        }
         return;
     }
 }
@@ -777,6 +811,7 @@ void setup ()
     print_clock_setup(); // Can be disabled if print_clock() isn't used
 
     lcd.backlight();
+    LCD_backlight = true;
     //lcd.noBacklight();
     lcd.noCursor();
     lcd.noBlink();
