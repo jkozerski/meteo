@@ -1,11 +1,6 @@
-// Uncomment define DEBUG line to build with debug logs (on serial)
-// This line MUST be before log.h include to make any effect
-//#define DEBUG
-
 #include <DHT.h>  // Temp and humidity
 #include <Wire.h> // Pressure
 #include <Adafruit_BMP085.h> // Pressure
-#include <log.h> // Serial log support
 #include <LiquidCrystal_I2C.h> // LCD display
 #include <DS3231.h>
 
@@ -473,7 +468,6 @@ bool print_time_string(unsigned row, bool full_update)
     static byte last_second;
     if (last_second == rtc.getSecond()) {
         // No update needed
-        LOGLN("RTC No update needed");
         return false;
     }
     last_second = rtc.getSecond();
@@ -526,7 +520,6 @@ bool print_time_string(unsigned row, bool full_update)
     time_format[19] = ret % 10 + ('0');
 
 end:
-    LOGLN(time_format);
     lcd.setCursor(0, row);
     lcd.print(time_format);
 
@@ -679,50 +672,33 @@ void read_meteo_data(float &temp_in,  float &humid_in,
     // ##### Temperature inside #####
     // Check value
     if (isnan(temp_in)) {
-        LOGLN("temp_in is NaN");
         temp_in = err_val; //ERR
-    }
-    else {
-        LOG("Temp in: "); LOGLN(temp_in);
     }
 
 
     // ##### Temperature outside #####
     // Check value
     if (isnan(temp_out)) {
-        LOGLN("temp_out is NaN");
         temp_out = err_val; //ERR
-    }
-    else {
-        LOG("Temp out: "); LOGLN(temp_out);
     }
 
 
     // ##### Humidity inside #####
     // Check value
     if(isnan(humid_in)) {
-        LOGLN("humid_in is NaN");
         humid_in = err_val; //ERR
-    }
-    else {
-        LOG("Humid in: "); LOGLN(humid_in);
     }
 
 
     // ##### Humidity outside #####
     // Check value
     if(isnan(humid_out)) {
-        LOGLN("humid_out is NaN");
         humid_out = err_val; //ERR
-    }
-    else {
-        LOG("Humid out: "); LOGLN(humid_out);
     }
 
 
     // ##### Pressure #####
     // Nothing to do here
-    LOG("Pressure: "); LOGLN(pressure);
 }
 
 
@@ -786,10 +762,6 @@ void backlight_buttons()
 
 void setup ()
 {
-    LogInit(9600);
-
-    LOGLN("Setup begin");
-
     // LEDs
     pinMode(DEBUG_LED, OUTPUT);
     digitalWrite(DEBUG_LED, LOW);
@@ -819,8 +791,10 @@ void setup ()
     lcd.print("Witamy!");
     lcd.setCursor(1, 1);
     lcd.print("Stacja pogodowa");
-    lcd.setCursor(7, 2);
-    lcd.print("wersja D_0.3");
+    lcd.setCursor(5, 2);
+    lcd.print("wersja D_0.4.0");
+    lcd.setCursor(12, 3);
+    lcd.print("Wi-Fi")
 
     // Sleep for setup dht sensors - just in case. This also gives you time to read te welcome screen.
     delay(4000);
@@ -831,7 +805,6 @@ void setup ()
 
     // Pressure sensor
     if (!bmp.begin(3)) { // init pressure sensor with high precission param - 3
-        LOGLN("Cannot initalize BMP (pressure) sensor");
         digitalWrite(DEBUG_LED, HIGH); // if error turn debug LED on
     }
 
@@ -840,7 +813,6 @@ void setup ()
 
     // Full time update
     print_time_string(3 /* 4th row */, true);
-    LOGLN("Setup end");
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -848,8 +820,6 @@ void setup ()
 
 void loop ()
 {
-    LOGLN("Loop");
-
     if (enter_time_setup())
         time_setup(3 /* 4th row */);
 
@@ -867,7 +837,5 @@ void loop ()
         fill_data(temp_in, temp_out, humid_in, humid_out, pressure);
         digitalWrite(DEBUG_LED, LOW);
     }
-
-    
 }
 
