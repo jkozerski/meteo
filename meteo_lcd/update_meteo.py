@@ -33,6 +33,9 @@ template_humid_in_end        = "<!-- /HUMID_IN -->"
 template_dew_point_in_begin  = "<!-- DEW_IN -->"
 template_dew_point_in_end    = "<!-- /DEW_IN -->"
 
+template_last_update_begin  = "<!-- LAST_UPDATE -->"
+template_last_update_end    = "<!-- /LAST_UPDATE -->"
+
 val_regexp = ".*"
 
 template_temp_out      = template_temp_out_begin      + val_regexp + template_temp_out_end
@@ -42,6 +45,7 @@ template_dew_point_out = template_dew_point_out_begin + val_regexp + template_de
 template_temp_in       = template_temp_in_begin       + val_regexp + template_temp_in_end
 template_humid_in      = template_humid_in_begin      + val_regexp + template_humid_in_end
 template_dew_point_in  = template_dew_point_in_begin  + val_regexp + template_dew_point_in_end
+template_last_update   = template_last_update_begin   + val_regexp + template_last_update_end
 
 # Returns outside values: temp_out, humid_out, dew_point_out
 def get_meteo_data_out():
@@ -79,6 +83,8 @@ def update_meteo_data(data):
 	temp_in, humid_in, temp_out, humid_out, pressure = data.split(";")
 	dew_out = get_dew_point(temp_out, humid_out);
 	dew_in  = get_dew_point(temp_in, humid_in);
+	last_update = datetime.now()
+	last_update = last_update.replace(microsecond=0)
 	
 	for line in old_file:
 		# out:
@@ -91,6 +97,8 @@ def update_meteo_data(data):
 		new_line = re.sub(template_temp_in,       template_temp_in_begin       + str(temp_in)   + template_temp_in_end,       new_line)
 		new_line = re.sub(template_humid_in,      template_humid_in_begin      + str(humid_in)  + template_humid_in_end,      new_line)
 		new_line = re.sub(template_dew_point_in,  template_dew_point_in_begin  + str(dew_in)    + template_dew_point_in_end,  new_line)
+		# las update:
+		new_line = re.sub(template_last_update,   template_last_update_begin + last_update.isoformat(' ') + template_last_update_end,   new_line)
 		# write to file:
 		new_file.write(new_line)
 	
