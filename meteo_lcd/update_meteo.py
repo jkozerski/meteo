@@ -4,6 +4,7 @@ import re
 from shutil import move
 from os import remove
 from math import sqrt, floor
+from datetime import datetime
 
 
 #www_meteo_path     = "/var/www/html/index.html"
@@ -11,6 +12,11 @@ from math import sqrt, floor
 
 www_meteo_path     = "/home/januszk/workspace/priv/meteo/meteo_lcd/meteo.html"
 www_meteo_path_tmp = "/home/januszk/workspace/priv/meteo/meteo_lcd/meteo.html_tmp"
+
+
+#log_file_path = "/var/www/html/meteo.log"
+log_file_path = "/home/januszk/workspace/priv/meteo/meteo_lcd/meteo.log"
+
 
 template_temp_out_begin      = "<!-- TEMP_OUT -->"
 template_temp_out_end        = "<!-- /TEMP_OUT -->"
@@ -54,6 +60,14 @@ def get_dew_point(temp, humid):
 	tmp = sqrt(sqrt(sqrt( float(humid)/100.0 ))) * (112.0 + (0.9 * float(temp))) + (0.1 * float(temp)) - 112.0;
 	return floor(tmp + 0.5);
 
+def log_to_file(temp_in, humid_in, dew_in, temp_out, humid_out, dew_out, pressure):
+	lf = open(log_file_path, "a");
+	t = datetime.now()
+	t = t.replace(microsecond=0)
+	new_line = t.isoformat() + ";" + str(temp_in) + ";" + str(humid_in) + ";" + str(dew_in) + ";" + str(temp_out) + ";" + str(humid_out) + ";" + str(dew_out) + ";" + str(pressure) + "\n"
+	lf.write(new_line)
+	lf.close()
+
 # Update web data:
 def update_meteo_data(data):
 	old_file = open(www_meteo_path, "r")
@@ -80,11 +94,15 @@ def update_meteo_data(data):
 		# write to file:
 		new_file.write(new_line)
 	
+	old_file.close()
+	new_file.close()
 	# Remove old file
 	remove(www_meteo_path)
 	# Move new file
 	move(www_meteo_path_tmp, www_meteo_path)
+	# Save data in log file
+	log_to_file(temp_in, humid_in, dew_in, temp_out, humid_out, dew_out, pressure);
 
 # Main program
-update_meteo_data("21.0; 50; -20.5; 90; 1013.3");
+update_meteo_data("30.0; 60; -20.5; 90; 1013.3");
 
