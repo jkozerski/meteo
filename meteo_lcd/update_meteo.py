@@ -20,16 +20,14 @@ import plotly
 # for testing purpose
 import random
 
+# choose working dir
+#working_dir = "/var/www/html/"
+working_dir = "/home/januszk/workspace/priv/meteo/meteo_lcd/"
 
-#www_meteo_path     = "/var/www/html/index.html"
-#www_meteo_path_tmp = "/var/www/html/index.html_tmp"
+www_meteo_path     = working_dir + "meteo.html"
+www_meteo_path_tmp = working_dir + "meteo.html_tmp"
 
-www_meteo_path     = "/home/januszk/workspace/priv/meteo/meteo_lcd/meteo.html"
-www_meteo_path_tmp = "/home/januszk/workspace/priv/meteo/meteo_lcd/meteo.html_tmp"
-
-
-#log_file_path = "/var/www/html/meteo.log"
-log_file_path = "/home/januszk/workspace/priv/meteo/meteo_lcd/meteo.log"
+log_file_path = working_dir + "meteo.log"
 
 
 template_temp_out_begin      = "<!-- TEMP_OUT -->"
