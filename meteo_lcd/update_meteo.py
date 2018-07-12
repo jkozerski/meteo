@@ -72,6 +72,7 @@ def get_meteo_pressure():
 	return 999.3
 
 # Calculates dew point
+# This should give a correct result for temperature in ranges -30 < T < 70 *C, and humidity  0-100%
 def get_dew_point(temp, humid):
 	tmp = sqrt(sqrt(sqrt( float(humid)/100.0 ))) * (112.0 + (0.9 * float(temp))) + (0.1 * float(temp)) - 112.0;
 	return floor(tmp + 0.5);
@@ -93,15 +94,20 @@ def getDateTimeFromISO8601String(s):
 
 # Draw a plot
 def draw_plot():
+	# Open log file
 	lf = open(log_file_path, "r");
-	t = []; # time for plot
+	t = []; # time axis for plot
 	t_out = []; # temp out for plot
 	h_out = []; # humid out for plot
 	d_out = []; # dew point for plot
 	p_out = []; # pressure for plot
+	# From each line of log file create a pairs of meteo data (time, value)
 	for line in lf:
+		# Parse line
 		time, temp_in, humid_in, dew_in, temp_out, humid_out, dew_out, pressure = str(line).split(";")
+		# Append time for time axis
 		t.append(getDateTimeFromISO8601String(time))
+		# Append meteo data for their axis
 		t_out.append(float(temp_out))
 		h_out.append(float(humid_out))
 		d_out.append(float(dew_out))
@@ -127,19 +133,26 @@ def draw_plot():
 
 
 # Update web data:
+# Meteo data comes to function as a parameters in order:
+# temp in, humid in, temp_out, humid out, pressure
 def update_meteo_data(data):
+	# Open html (web page) file with meteo data
 	old_file = open(www_meteo_path, "r")
+	# Open temporary html file
 	new_file = open(www_meteo_path_tmp, "w")
 
-	#temp_out, humid_out, dew_out = get_meteo_data_out()
-	#temp_in, humid_in = get_meteo_data_in()
-	#pressure = get_meteo_pressure()
+	# Meteo data comes to function as a parameters in order:
+	# temp in, humid in, temp_out, humid out, pressure
 	temp_in, humid_in, temp_out, humid_out, pressure = data.split(";")
+	# Calculate dew point (in and out)
 	dew_out = get_dew_point(temp_out, humid_out);
 	dew_in  = get_dew_point(temp_in, humid_in);
+	# Get current time
 	last_update = datetime.now()
+	# Reset microsecond in current time to 0 - we don't want to keep them
 	last_update = last_update.replace(microsecond=0)
 	
+	# In html file replace old data with new data using regular expressions an templates
 	for line in old_file:
 		# out:
 		new_line = re.sub(template_temp_out,      template_temp_out_begin      + str(temp_out)  + template_temp_out_end,      line)
@@ -151,18 +164,19 @@ def update_meteo_data(data):
 		new_line = re.sub(template_temp_in,       template_temp_in_begin       + str(temp_in)   + template_temp_in_end,       new_line)
 		new_line = re.sub(template_humid_in,      template_humid_in_begin      + str(humid_in)  + template_humid_in_end,      new_line)
 		new_line = re.sub(template_dew_point_in,  template_dew_point_in_begin  + str(dew_in)    + template_dew_point_in_end,  new_line)
-		# las update:
-		new_line = re.sub(template_last_update,   template_last_update_begin + last_update.isoformat(' ') + template_last_update_end,   new_line)
+		# last update:
+		new_line = re.sub(template_last_update,   template_last_update_begin + last_update.isoformat(' ') + template_last_update_end, new_line)
 		# write to file:
 		new_file.write(new_line)
 	
+	# Close opened files
 	old_file.close()
 	new_file.close()
 	# Remove old file
 	remove(www_meteo_path)
-	# Move new file
+	# Move new file (with new data) instead of old one
 	move(www_meteo_path_tmp, www_meteo_path)
-	# Save data in log file
+	# Save data in log file (we can use to draw a plot)
 	log_to_file(temp_in, humid_in, dew_in, temp_out, humid_out, dew_out, pressure);
 	# Draw a plot
 	draw_plot()
