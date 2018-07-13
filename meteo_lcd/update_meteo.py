@@ -159,10 +159,10 @@ def update_meteo_data(data):
 	# if now() - last_update_time < update_delay - then do nothing
 	if last_update - last_update_time < update_delay:
 		# do nothing
-		print "No need to update"
+		print("No need to update")
 		return
 	
-	print "Need to update"
+	print("Need to update")
 	last_update_time = last_update;
 	
 	# Open html (web page) file with meteo data
@@ -181,6 +181,7 @@ def update_meteo_data(data):
 	# In html file replace old data with new data using regular expressions an templates
 	for line in old_file:
 		# out:
+		line = line.decode("utf-8") # Remove this for Python 3.x
 		new_line = re.sub(template_temp_out,      template_temp_out_begin      + str(temp_out)  + template_temp_out_end,      line)
 		new_line = re.sub(template_humid_out,     template_humid_out_begin     + str(humid_out) + template_humid_out_end,     new_line)
 		new_line = re.sub(template_dew_point_out, template_dew_point_out_begin + str(dew_out)   + template_dew_point_out_end, new_line)
@@ -193,7 +194,8 @@ def update_meteo_data(data):
 		# last update:
 		new_line = re.sub(template_last_update,   template_last_update_begin + last_update.isoformat(' ') + template_last_update_end, new_line)
 		# write to file:
-		new_file.write(new_line)
+		new_file.write(new_line.encode("utf-8"))
+		#new_file.write(new_line) # use this for Python 3.x
 	
 	# Close opened files
 	old_file.close()
