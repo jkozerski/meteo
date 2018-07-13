@@ -29,6 +29,12 @@ www_meteo_path_tmp = working_dir + "meteo.html_tmp"
 
 log_file_path = working_dir + "meteo.log"
 
+# Diagiam file names
+temp_out_diagram_file      = "temp_out.html"
+humid_out_diagram_file     = "humid_out.html"
+dew_point_out_diagram_file = "dew_out.html"
+pressure_diagram_file      = "pressure.html"
+
 
 template_temp_out_begin      = "<!-- TEMP_OUT -->"
 template_temp_out_end        = "<!-- /TEMP_OUT -->"
@@ -122,13 +128,16 @@ def draw_plot():
 	#plotly.offline.plot(data, show_link=True, link_text='Export to plot.ly', validate=True, output_type='file', include_plotlyjs=True, filename='temp_out.html', auto_open=False, image=None, image_filename='plot_image', image_width=800, image_height=600, config=None)
 	
 	# draw temp out plot into html file
-	plotly.offline.plot(data_temp, show_link=False, link_text='Export to plot.ly', validate=False, output_type='file', include_plotlyjs=True, filename='temp_out.html', auto_open=False, image=None, image_filename='plot_image', image_width=800, image_height=600, config=None)
+	plotly.offline.plot(data_temp, show_link=False, link_text='Export to plot.ly', validate=False, output_type='file', include_plotlyjs=True, filename=working_dir+temp_out_diagram_file, auto_open=False, image=None, image_filename='plot_image', image_width=800, image_height=600, config=None)
+	
 	# draw humid out plot into html file
-	plotly.offline.plot(data_humid, show_link=False, link_text='Export to plot.ly', validate=False, output_type='file', include_plotlyjs=True, filename='humid_out.html', auto_open=False, image=None, image_filename='plot_image', image_width=800, image_height=600, config=None)
+	plotly.offline.plot(data_humid, show_link=False, link_text='Export to plot.ly', validate=False, output_type='file', include_plotlyjs=True, filename=working_dir+humid_out_diagram_file, auto_open=False, image=None, image_filename='plot_image', image_width=800, image_height=600, config=None)
+	
 	# draw dew point out plot into html file
-	plotly.offline.plot(data_humid, show_link=False, link_text='Export to plot.ly', validate=False, output_type='file', include_plotlyjs=True, filename='dew_out.html', auto_open=False, image=None, image_filename='plot_image', image_width=800, image_height=600, config=None)
+	plotly.offline.plot(data_humid, show_link=False, link_text='Export to plot.ly', validate=False, output_type='file', include_plotlyjs=True, filename=working_dir+dew_point_out_diagram_file, auto_open=False, image=None, image_filename='plot_image', image_width=800, image_height=600, config=None)
+	
 	# draw pressure plot into html file
-	plotly.offline.plot(data_humid, show_link=False, link_text='Export to plot.ly', validate=False, output_type='file', include_plotlyjs=True, filename='press_out.html', auto_open=False, image=None, image_filename='plot_image', image_width=800, image_height=600, config=None)
+	plotly.offline.plot(data_humid, show_link=False, link_text='Export to plot.ly', validate=False, output_type='file', include_plotlyjs=True, filename=working_dir+pressure_diagram_file, auto_open=False, image=None, image_filename='plot_image', image_width=800, image_height=600, config=None)
 	return
 
 
