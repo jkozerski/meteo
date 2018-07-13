@@ -8,7 +8,7 @@ import re #regular expression
 from shutil import move
 from os import remove
 from math import sqrt, floor
-from datetime import datetime
+import datetime # datetime and timedelta structures
 
 
 # Needed for drawing a plot
@@ -19,6 +19,7 @@ import plotly
 
 # for testing purpose
 import random
+import time
 
 # choose working dir
 #working_dir = "/var/www/html/"
@@ -34,6 +35,12 @@ temp_out_diagram_file      = "temp_out.html"
 humid_out_diagram_file     = "humid_out.html"
 dew_point_out_diagram_file = "dew_out.html"
 pressure_diagram_file      = "pressure.html"
+
+# We don't want to make update too often so we need to store last update time
+# And compare it with current time - if current time is too small then do nothing
+# Initialize it to some old time
+last_update_time = datetime.datetime.fromtimestamp(1284286794)
+update_delay = datetime.timedelta(seconds = 6 * 5) # update delay in seconds -> 5 minutes
 
 
 template_temp_out_begin      = "<!-- TEMP_OUT -->"
@@ -87,7 +94,7 @@ def get_dew_point(temp, humid):
 # We can use this data later to draw a plot
 def log_to_file(temp_in, humid_in, dew_in, temp_out, humid_out, dew_out, pressure):
 	lf = open(log_file_path, "a");
-	t = datetime.now()
+	t = datetime.datetime.now()
 	t = t.replace(microsecond=0)
 	new_line = t.isoformat() + ";" + str(temp_in) + ";" + str(humid_in) + ";" + str(dew_in) + ";" + str(temp_out) + ";" + str(humid_out) + ";" + str(dew_out) + ";" + str(pressure) + "\n"
 	lf.write(new_line)
@@ -97,6 +104,11 @@ def log_to_file(temp_in, humid_in, dew_in, temp_out, humid_out, dew_out, pressur
 def getDateTimeFromISO8601String(s):
     d = dateutil.parser.parse(s)
     return d
+
+# draw a plot from the data into a html file
+def generate_plot(data, filename):
+	#plotly.offline.plot(data, show_link=True, link_text='Export to plot.ly', validate=True, output_type='file', include_plotlyjs=True, filename='temp_out.html', auto_open=False, image=None, image_filename='plot_image', image_width=800, image_height=600, config=None)
+	plotly.offline.plot(data, show_link=False, link_text='Export to plot.ly', validate=False, output_type='file', include_plotlyjs=True, filename=working_dir+filename, auto_open=False, image=None, image_filename='plot_image', image_width=600, image_height=800, config=None)
 
 # Draw a plot
 def draw_plot():
@@ -125,19 +137,12 @@ def draw_plot():
 	data_dew   = [plotly.graph_objs.Scatter(x=t, y=d_out)]
 	data_press = [plotly.graph_objs.Scatter(x=t, y=p_out)]
 	
-	#plotly.offline.plot(data, show_link=True, link_text='Export to plot.ly', validate=True, output_type='file', include_plotlyjs=True, filename='temp_out.html', auto_open=False, image=None, image_filename='plot_image', image_width=800, image_height=600, config=None)
+	# draw plots for outside values: temperature, humidity, dew piont, pressure
+	generate_plot(data_temp,  temp_out_diagram_file)
+	generate_plot(data_humid, humid_out_diagram_file)
+	generate_plot(data_dew,   dew_point_out_diagram_file)
+	generate_plot(data_press, pressure_diagram_file)
 	
-	# draw temp out plot into html file
-	plotly.offline.plot(data_temp, show_link=False, link_text='Export to plot.ly', validate=False, output_type='file', include_plotlyjs=True, filename=working_dir+temp_out_diagram_file, auto_open=False, image=None, image_filename='plot_image', image_width=800, image_height=600, config=None)
-	
-	# draw humid out plot into html file
-	plotly.offline.plot(data_humid, show_link=False, link_text='Export to plot.ly', validate=False, output_type='file', include_plotlyjs=True, filename=working_dir+humid_out_diagram_file, auto_open=False, image=None, image_filename='plot_image', image_width=800, image_height=600, config=None)
-	
-	# draw dew point out plot into html file
-	plotly.offline.plot(data_humid, show_link=False, link_text='Export to plot.ly', validate=False, output_type='file', include_plotlyjs=True, filename=working_dir+dew_point_out_diagram_file, auto_open=False, image=None, image_filename='plot_image', image_width=800, image_height=600, config=None)
-	
-	# draw pressure plot into html file
-	plotly.offline.plot(data_humid, show_link=False, link_text='Export to plot.ly', validate=False, output_type='file', include_plotlyjs=True, filename=working_dir+pressure_diagram_file, auto_open=False, image=None, image_filename='plot_image', image_width=800, image_height=600, config=None)
 	return
 
 
@@ -145,6 +150,21 @@ def draw_plot():
 # Meteo data comes to function as a parameters in order:
 # temp in, humid in, temp_out, humid out, pressure
 def update_meteo_data(data):
+	# Get current time
+	last_update = datetime.datetime.now()
+	# Reset microsecond in current time to 0 - we don't want to keep them
+	last_update = last_update.replace(microsecond=0)
+	
+	global last_update_time
+	# if now() - last_update_time < update_delay - then do nothing
+	if last_update - last_update_time < update_delay:
+		# do nothing
+		print "No need to update"
+		return
+	
+	print "Need to update"
+	last_update_time = last_update;
+	
 	# Open html (web page) file with meteo data
 	old_file = open(www_meteo_path, "r")
 	# Open temporary html file
@@ -153,13 +173,10 @@ def update_meteo_data(data):
 	# Meteo data comes to function as a parameters in order:
 	# temp in, humid in, temp_out, humid out, pressure
 	temp_in, humid_in, temp_out, humid_out, pressure = data.split(";")
+
 	# Calculate dew point (in and out)
 	dew_out = get_dew_point(temp_out, humid_out);
 	dew_in  = get_dew_point(temp_in, humid_in);
-	# Get current time
-	last_update = datetime.now()
-	# Reset microsecond in current time to 0 - we don't want to keep them
-	last_update = last_update.replace(microsecond=0)
 	
 	# In html file replace old data with new data using regular expressions an templates
 	for line in old_file:
