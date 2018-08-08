@@ -1,0 +1,20 @@
+http://www.instructables.com/id/How-to-Use-MQTT-With-the-Raspberry-Pi-and-ESP8266/
+https://starter-kit.nettigo.pl/2016/04/esp8266-iot-praktyczny-przyklad-cz-4-arduino-ide/
+https://nettigo.pl/products/adapter-usb-do-modulow-esp8266-01
+
+Meteo LCD box has ESP8266 and it's MQTT PUBLISHER.
+Rspberry PI is MQTT BROKER.
+Python script on Raspberry is MQTT SUBSCRIBER, and updates simple webpage with received data.
+
+Install:
+For Python 2.7:
+sudo apt-get install python-pip
+sudo pip install python-dateutil
+sudo pip install plotly
+sudo pip install plotly --upgrade
+
+For python 3.x:
+sudo apt-get install python3-pip
+sudo pip3 install python-dateutil
+sudo pip3 install plotly
+sudo pip3 install plotly --upgrade
