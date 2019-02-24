@@ -94,7 +94,7 @@ const int32_t err_val = 200000;
 
 
 // Send meteo data via RS not more often than: [ms]
-const unsigned long rs_wait_time = 60 * 1000; // 1 minute
+const unsigned long long rs_wait_time = 20L * 1000L; // 20 seconds
 unsigned long old_time = 0;
 
 
@@ -118,29 +118,18 @@ bool show_dew_point = true;
  */
 
 /*
- * Return a dew point for temperatures in range -30°C up to +50°C.
+ * Return a dew point for temperatures in range -30°C up to +70°C.
  * Humidity should be from 0 up to 100%.
  * Functions returns esimated dew point in °C
  * Returns 100 as an error - Temperature beyond the scale.
  */
 int8_t get_dew_point (float temp, float humid)
 {
-    if (temp < -31.0 || temp > 50)
+    if (temp < -31.0 || temp > 70)
         return 100; // treat it as an error.
 
-/*
-    int temp_idx = 40 - (temp + 30.0)/2;
-    if (temp_idx < 0) temp_idx = 0;
-    if (temp_idx > 40) temp_idx = 40;
-
-    int humid_idx = (humid + 2.5)/5;
-    if (humid_idx < 0) humid_idx = 0;
-    if (humid_idx > 20) humid_idx = 20;
-
-    return dew_point[temp_idx][humid_idx];
-*/
-double tmp = (sqrt(sqrt(sqrt( (double)humid/100.0 ))) * (112.0 + (0.9 * (double)temp)) + (0.1 * temp) - 112.0);
-return (int8_t) (tmp + 0.5); // + 0.5 for round up
+    double tmp = (sqrt(sqrt(sqrt( (double)humid/100.0 ))) * (112.0 + (0.9 * (double)temp)) + (0.1 * temp) - 112.0);
+    return (int8_t) (tmp + 0.5); // + 0.5 for round up
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -624,10 +613,16 @@ void fill_data(float temp_in, float temp_out, float humid_in, float humid_out, i
     }
 }
 
-void read_meteo_data(float &temp_in,  float &humid_in,
+/*
+ * Returns true if everything is OK.
+ * Returns false if read of any value fails.
+ */
+bool read_meteo_data(float &temp_in,  float &humid_in,
                      float &temp_out, float &humid_out,
                      int32_t &pressure)
 {
+    bool ret = true;
+
     temp_in   = dht_in.readTemperature();
     humid_in  = dht_in.readHumidity();
     temp_out  = dht_out.readTemperature();
@@ -639,6 +634,7 @@ void read_meteo_data(float &temp_in,  float &humid_in,
     // Check value
     if (isnan(temp_in)) {
         temp_in = err_val; //ERR
+        ret = false;
     }
 
 
@@ -646,6 +642,7 @@ void read_meteo_data(float &temp_in,  float &humid_in,
     // Check value
     if (isnan(temp_out)) {
         temp_out = err_val; //ERR
+        ret = false;
     }
 
 
@@ -653,6 +650,7 @@ void read_meteo_data(float &temp_in,  float &humid_in,
     // Check value
     if(isnan(humid_in)) {
         humid_in = err_val; //ERR
+        ret = false;
     }
 
 
@@ -660,11 +658,14 @@ void read_meteo_data(float &temp_in,  float &humid_in,
     // Check value
     if(isnan(humid_out)) {
         humid_out = err_val; //ERR
+        ret = false;
     }
 
 
     // ##### Pressure #####
     // Nothing to do here
+
+    return ret;
 }
 
 
@@ -735,89 +736,9 @@ void print_meteo_to_rs(float temp_in, float humid_in, float temp_out, float humi
     Serial.print(";");
     Serial.print(humid_out, 0);
     Serial.print(";");
-    Serial.print(pressure);
+    Serial.print(pressure, 1);
     Serial.print(")");
 }
-
-/*
-void parse_meteo_rs (char c)
-{
-    static int state;
-    static int temp_in;
-    static int humid_in;
-    static int temp_out;
-    static int humid_out;
-    static int pressure;
-
-
-
-    if (state == -1) {
-        if (c == '(') {
-            state = 0;
-            temp_in = 0;
-            humid_in = 0;
-            temp_out = 0;
-            humid_out = 0;
-            pressure = 0;
-        }
-        return;
-    }
-
-    if (c == ';') {
-        state++;
-        return;
-    }
-
-    if (c == ')') {
-        if (state == 4) {
-            float temp_in_f = temp_in / 10.0;
-            float humid_in_f = humid_in;
-            float temp_out_f = temp_out / 10.0;
-            float humid_out_f = humid_out;
-            float pressure_f = pressure/100.0;
-            temp_in = 0.0;
-            humid_in = 0.0;
-            temp_out = 0.0;
-            humid_out = 0.0;
-            pressure = 0.0;
-      // TODO: Data ready;
-        }
-        state = -1;
-        return;
-    }
-
-    if (c < '0' || c > '9') {
-        state = -1;
-        return;
-    }
-
-    // temp_in
-    if (state == 0) {
-        temp_in *= 10;
-        temp_in += c - '0';
-    }
-    // humid_in
-    if (state == 1) {
-        humid_in *= 10;
-        humid_in += c - '0';
-    }
-    // temp_out
-    if (state == 2) {
-        temp_out *= 10;
-        temp_out += c - '0';
-    }
-    // humid_out
-    if (state == 3) {
-        humid_out *= 10;
-        humid_out += c - '0';
-    }
-    if (state == 4) {
-        pressure *= 10;
-        pressure += c - '0';
-    }
-
-}
-*/
 
 ////////////////////////////////////////////////////////////////////////////////
 //                ARDUINO SETUP
@@ -857,7 +778,7 @@ void setup ()
     lcd.setCursor(1, 1);
     lcd.print("Stacja pogodowa");
     lcd.setCursor(5, 2);
-    lcd.print("wersja D_0.4.0");
+    lcd.print("wersja 0.5.0");
     lcd.setCursor(12, 3);
     lcd.print("Wi-Fi");
 
@@ -897,15 +818,17 @@ void loop ()
         digitalWrite(DEBUG_LED, HIGH);
         float temp_in, humid_in, temp_out, humid_out;
         int32_t pressure;
+        bool read_status;
 
-        read_meteo_data(temp_in, humid_in, temp_out, humid_out, pressure);
+        read_status = read_meteo_data(temp_in, humid_in, temp_out, humid_out, pressure);
         fill_data(temp_in, temp_out, humid_in, humid_out, pressure);
+        read_status = true; // fill_data puts special values in data if reading fails
 
         // Send meteo data via RS to ESP8266
-        if (millis() > old_time + rs_wait_time) {
+        if ((millis() > old_time + rs_wait_time) && read_status /*Send data to ESP8266 only if read_meteo_data succed*/) {
             old_time = millis();
             print_meteo_to_rs(temp_in, humid_in, temp_out, humid_out, pressure);
-  }
+        }
 
         digitalWrite(DEBUG_LED, LOW);
     }

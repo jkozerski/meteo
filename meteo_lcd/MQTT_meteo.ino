@@ -18,7 +18,7 @@ const char* wifi_password = ""; //FIXME
 
 // MQTT
 // Make sure to update this for your own MQTT Broker!
-const char* mqtt_server = ""; //FIXME
+const char* mqtt_server = "0.0.0.0"; //FIXME
 const char* mqtt_topic = "meteo";
 const char* mqtt_username = "meteo";
 const char* mqtt_password = ""; //FIXME
@@ -47,6 +47,11 @@ void setup()
     // Remember to choose the correct Baudrate on the Serial monitor!
     // This is just for debugging purposes
     Serial.begin(115200);
+
+
+    Serial.println("\n");
+    Serial.print("Meteo LCD 0.5.0 (WiFi)");
+    Serial.println("ESP8266 - MQTT_meteo");
 
     Serial.print("Connecting to ");
     Serial.println(ssid);
@@ -100,27 +105,34 @@ void loop()
                  continue;
             }
             else if (message[buff_iter] == ')') { // end of message
-                message[buff_iter] == '\0';
+                message[buff_iter] = '\0';
                 buff_iter = 0;
                 buff_status = 0;
                 Serial.println(message);
 
                 if (client.publish(mqtt_topic, message)) {
-                    // OK
+                    Serial.println("Message published");
                 }
                 // If the message failed to send, we will try again, as the connection may have broken.
                 else {
                     // ERROR
+                    Serial.println("Publishing error - try to reconnect");
                     client.connect(clientID, mqtt_username, mqtt_password);
                     delay(10); // ensures that client.publish doesn't clash with the client.connect
-                    client.publish(mqtt_topic, message);
+                    if (client.publish(mqtt_topic, message)) {
+                        Serial.println("Message published");
+                    }
+                    else {
+                        Serial.println("Publishing error");
+                    }
                 }
                 continue;
             }
             else { // any illegal char
                 buff_iter = 0;
                 buff_status = 0;
+                Serial.println("Bad message");
             }
         }
     }
-} 
+}
