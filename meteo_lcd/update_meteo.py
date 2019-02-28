@@ -1,8 +1,14 @@
+#!/usr/bin/env python2.7
 # -*- coding: utf-8 -*-
 
 # install:
 # pip install python-dateutil
+# for diagrams (this seems to be too "heavy for raspberry"):
 # pip install plotly
+
+# or for other diagrams:
+# sudo python -m pip --no-cache-dir install -U matplotlib
+
 
 import re #regular expression
 from shutil import move
@@ -10,20 +16,26 @@ from os import remove
 from math import sqrt, floor
 import datetime # datetime and timedelta structures
 
+# Mosquito (data passing/sharing)
+import paho.mqtt.client as mqtt
 
 # Needed for drawing a plot
 import dateutil.parser
-import plotly
+#import plotly
 #import plotly.plotly as py
 #import plotly.graph_objs as go
+import matplotlib
+import matplotlib.pyplot as plt
+import numpy as np
+from matplotlib.ticker import MultipleLocator
 
 # for testing purpose
 import random
 import time
 
 # choose working dir
-#working_dir = "/var/www/html/"
-working_dir = "/home/januszk/workspace/priv/meteo/meteo_lcd/"
+working_dir = "/var/www/html/"
+#working_dir = "/home/januszk/workspace/priv/meteo/meteo_lcd/"
 
 www_meteo_path     = working_dir + "meteo.html"
 www_meteo_path_tmp = working_dir + "meteo.html_tmp"
@@ -31,16 +43,18 @@ www_meteo_path_tmp = working_dir + "meteo.html_tmp"
 log_file_path = working_dir + "meteo.log"
 
 # Diagiam file names
-temp_out_diagram_file      = "temp_out.html"
-humid_out_diagram_file     = "humid_out.html"
-dew_point_out_diagram_file = "dew_out.html"
-pressure_diagram_file      = "pressure.html"
+temp_out_diagram_file      = working_dir + "temp_out.png"
+humid_out_diagram_file     = working_dir + "humid_out.png"
+dew_point_out_diagram_file = working_dir + "dew_out.png"
+pressure_diagram_file      = working_dir + "pressure.png"
 
 # We don't want to make update too often so we need to store last update time
 # And compare it with current time - if current time is too small then do nothing
 # Initialize it to some old time
 last_update_time = datetime.datetime.fromtimestamp(1284286794)
-update_delay = datetime.timedelta(seconds = 6 * 5) # update delay in seconds -> 5 minutes
+update_delay = datetime.timedelta(seconds = 60 * 1) # update delay in seconds -> 1 minute
+log_delay = 5 # update log every 5 webpage update (~5 min)
+log_delay_iter = 0 # iterator initialization
 
 
 template_temp_out_begin      = "<!-- TEMP_OUT -->"
@@ -114,55 +128,211 @@ def generate_plot(data, filename):
 def draw_plot():
 	# Open log file
 	lf = open(log_file_path, "r");
-	t = []; # time axis for plot
-	t_out = []; # temp out for plot
-	h_out = []; # humid out for plot
-	d_out = []; # dew point for plot
-	p_out = []; # pressure for plot
-	# From each line of log file create a pairs of meteo data (time, value)
-	for line in lf:
-		# Parse line
-		time, temp_in, humid_in, dew_in, temp_out, humid_out, dew_out, pressure = str(line).split(";")
-		# Append time for time axis
-		t.append(getDateTimeFromISO8601String(time))
-		# Append meteo data for their axis
-		t_out.append(float(temp_out))
-		h_out.append(float(humid_out))
-		d_out.append(float(dew_out))
-		p_out.append(float(pressure))
-	lf.close()
-	# Create datasets
-	data_temp  = [plotly.graph_objs.Scatter(x=t, y=t_out)]
-	data_humid = [plotly.graph_objs.Scatter(x=t, y=h_out)]
-	data_dew   = [plotly.graph_objs.Scatter(x=t, y=d_out)]
-	data_press = [plotly.graph_objs.Scatter(x=t, y=p_out)]
-	
-	# draw plots for outside values: temperature, humidity, dew piont, pressure
-	generate_plot(data_temp,  temp_out_diagram_file)
-	generate_plot(data_humid, humid_out_diagram_file)
-	generate_plot(data_dew,   dew_point_out_diagram_file)
-	generate_plot(data_press, pressure_diagram_file)
-	
-	return
+	# Calculates number lines in log file
+        num_lines = sum(1 for line in lf)
+        lf.seek(0)
+
+	# We want to use only a few last lines (chart of last few hours/days)
+        values_count = 800 # 800 - aprox. 3 full days
+        lines_to_skip = num_lines - values_count
+
+	# This keeps chart nice-looking
+	ratio = 0.25;
+
+	# Helpers
+        i = 0;
+        j = 0;
+
+	# Use every x (e.g. every second, or every third) value - this makes chart more 'smooth'
+        every_x = 1;
+
+        t = []; # time axis for plot
+        t_out = []; # temp out for plot
+        h_out = []; # humid out for plot
+        d_out = []; # dew point for plot
+        p_out = []; # pressure for plot
+        # From each line of log file create a pairs of meteo data (time, value)
+        for line in lf:
+            i += 1
+            j += 1
+            if i < lines_to_skip:
+                continue
+            if j >= every_x:
+                j = 0
+            else:
+                continue
+            # Parse line
+            time, temp_in, humid_in, dew_in, temp_out, humid_out, dew_out, pressure = str(line).split(";")
+            # Append time for time axis
+            #t.append(matplotlib.dates.date2num(getDateTimeFromISO8601String(time)))
+            t.append(getDateTimeFromISO8601String(time))
+            # Append meteo data for their axis
+            t_out.append(float(temp_out))
+            h_out.append(float(humid_out))
+            d_out.append(float(dew_out))
+            p_out.append(float(pressure))
+
+        lf.close()
+
+        # draw plots for outside values: temperature, humidity, dew piont, pressure
+
+
+	##############
+	# Temperature
+        fig, ax = plt.subplots()
+        #ax.set_aspect(0.05)
+        #ax.set_aspect(0.04)
+        fig.set_size_inches(20, 20)
+        ax.plot_date(t, t_out, 'b-')
+
+	ax.set_xlim(t[0], t[values_count-1])
+        ax.set(xlabel='', ylabel='Temperatura [C] ',
+               title='Wykres temperatury zewnetrznej')
+        ax.grid()
+
+        ax.yaxis.set_minor_locator(MultipleLocator(0.1))
+        ax.yaxis.set_major_locator(MultipleLocator(1))
+        ax.xaxis.set_major_locator(matplotlib.dates.HourLocator(byhour=None, interval=3))
+        ax.xaxis.set_minor_locator(matplotlib.dates.HourLocator())
+        ax.xaxis.set_major_formatter(matplotlib.dates.DateFormatter("%m-%d %H:%M"))
+        #ax.yaxis.set_major_formatter(majorFormatter)
+        ax.tick_params(labeltop=False, labelright=True)
+
+        plt.gcf().autofmt_xdate()
+
+        xmin, xmax = ax.get_xlim()
+        ymin, ymax = ax.get_ylim()
+        #print((xmax-xmin)/(ymax-ymin))
+        ax.set_aspect(abs((xmax-xmin)/(ymax-ymin))*ratio) #, adjustable='box-forced')
+
+        #fig.savefig("test.png", dpi=200)
+        fig.savefig(temp_out_diagram_file, bbox_inches='tight')
+        plt.close()
+
+
+	##############
+	# Humidity
+        fig, ax = plt.subplots()
+        ax.set_aspect(0.04)
+        fig.set_size_inches(20, 20)
+	ax.plot_date(t, h_out, 'b-')
+
+	ax.set_xlim(t[0], t[values_count-1])
+        ax.set(xlabel='', ylabel='Wilgotnosc wzgledna [%] ',
+               title='Wykres wilgotnosci wzglednej')
+        ax.grid()
+
+        ax.yaxis.set_minor_locator(MultipleLocator(1))
+        ax.yaxis.set_major_locator(MultipleLocator(5))
+        ax.xaxis.set_major_locator(matplotlib.dates.HourLocator(byhour=None, interval=3))
+        ax.xaxis.set_minor_locator(matplotlib.dates.HourLocator())
+        ax.xaxis.set_major_formatter(matplotlib.dates.DateFormatter("%m-%d %H:%M"))
+        ax.tick_params(labeltop=False, labelright=True)
+
+        plt.gcf().autofmt_xdate()
+
+        xmin, xmax = ax.get_xlim()
+        ymin, ymax = ax.get_ylim()
+        ax.set_aspect(abs((xmax-xmin)/(ymax-ymin))*ratio)
+
+        fig.savefig(humid_out_diagram_file, bbox_inches='tight')
+        plt.close()
+
+
+	##############
+	# Dew point
+        fig, ax = plt.subplots()
+        ax.set_aspect(0.04)
+        fig.set_size_inches(20, 20)
+	ax.plot_date(t, d_out, 'b-')
+
+	ax.set_xlim(t[0], t[values_count-1])
+        ax.set(xlabel='', ylabel='Temp. punktu rosy [C] ',
+               title='Wykres temperatury punktu rosy')
+        ax.grid()
+
+        ax.yaxis.set_minor_locator(MultipleLocator(1))
+        ax.yaxis.set_major_locator(MultipleLocator(1))
+        ax.xaxis.set_major_locator(matplotlib.dates.HourLocator(byhour=None, interval=3))
+        ax.xaxis.set_minor_locator(matplotlib.dates.HourLocator())
+        ax.xaxis.set_major_formatter(matplotlib.dates.DateFormatter("%m-%d %H:%M"))
+        ax.tick_params(labeltop=False, labelright=True)
+
+        plt.gcf().autofmt_xdate()
+
+        xmin, xmax = ax.get_xlim()
+        ymin, ymax = ax.get_ylim()
+        ax.set_aspect(abs((xmax-xmin)/(ymax-ymin))*ratio)
+
+        fig.savefig(dew_point_out_diagram_file, bbox_inches='tight')
+        plt.close()
+
+
+	##############
+	# Pressure
+        fig, ax = plt.subplots()
+        ax.set_aspect(0.04)
+        fig.set_size_inches(20, 20)
+	ax.plot_date(t, p_out, 'b-')
+
+	ax.set_xlim(t[0], t[values_count-1])
+        ax.set(xlabel='', ylabel='Cisnienie atm. [hPa]',
+               title='Wykres cisnienia atmosferycznego')
+        ax.grid()
+
+        ax.yaxis.set_minor_locator(MultipleLocator(1))
+        ax.yaxis.set_major_locator(MultipleLocator(2))
+        ax.xaxis.set_major_locator(matplotlib.dates.HourLocator(byhour=None, interval=3))
+        ax.xaxis.set_minor_locator(matplotlib.dates.HourLocator())
+        ax.xaxis.set_major_formatter(matplotlib.dates.DateFormatter("%m-%d %H:%M"))
+        ax.tick_params(labeltop=False, labelright=True)
+
+        plt.gcf().autofmt_xdate()
+
+        xmin, xmax = ax.get_xlim()
+        ymin, ymax = ax.get_ylim()
+        ax.set_aspect(abs((xmax-xmin)/(ymax-ymin))*ratio)
+
+        fig.savefig(pressure_diagram_file, bbox_inches='tight')
+        plt.close()
+
+        return
 
 
 # Update web data:
 # Meteo data comes to function as a parameters in order:
 # temp in, humid in, temp_out, humid out, pressure
 def update_meteo_data(data):
+
+        # Meteo data comes to function as a parameters in order:
+        # temp in, humid in, temp_out, humid out, pressure
+        try:
+		temp_in, humid_in, temp_out, humid_out, pressure = data.split(";")
+		val = float(temp_in)
+		val = int(humid_in)
+		val = float(temp_out)
+		val = int(humid_out)
+		val = float(pressure)
+        except Exception as e:
+		print("Bad meteo data values: " + str(e))
+		return
+        pressure = float(pressure) / 100.0
+
 	# Get current time
 	last_update = datetime.datetime.now()
 	# Reset microsecond in current time to 0 - we don't want to keep them
 	last_update = last_update.replace(microsecond=0)
 	
 	global last_update_time
+	global log_delay_iter
 	# if now() - last_update_time < update_delay - then do nothing
 	if last_update - last_update_time < update_delay:
 		# do nothing
-		print("No need to update")
+		#print("No need to update")
 		return
 	
-	print("Need to update")
+	print("Web update")
+	# save last update time
 	last_update_time = last_update;
 	
 	# Open html (web page) file with meteo data
@@ -172,7 +342,7 @@ def update_meteo_data(data):
 
 	# Meteo data comes to function as a parameters in order:
 	# temp in, humid in, temp_out, humid out, pressure
-	temp_in, humid_in, temp_out, humid_out, pressure = data.split(";")
+	#temp_in, humid_in, temp_out, humid_out, pressure = data.split(";")
 
 	# Calculate dew point (in and out)
 	dew_out = get_dew_point(temp_out, humid_out);
@@ -204,11 +374,60 @@ def update_meteo_data(data):
 	remove(www_meteo_path)
 	# Move new file (with new data) instead of old one
 	move(www_meteo_path_tmp, www_meteo_path)
+
 	# Save data in log file (we can use to draw a plot)
-	log_to_file(temp_in, humid_in, dew_in, temp_out, humid_out, dew_out, pressure);
+	if log_delay_iter <= 0:
+                log_delay_iter = log_delay;
+		# put data into log file
+		print("Update log")
+		log_to_file(temp_in, humid_in, dew_in, temp_out, humid_out, dew_out, pressure);
+		print("Draw a plot")
+		draw_plot()
+		print("Drawing done!")
+        log_delay_iter -= 1;
+
+
 	# Draw a plot
-	draw_plot()
+        # do not draw it - generating and displaying it costs too much CPU
+	# draw_plot()
 
 # Main program
-update_meteo_data("30.0; 60; " + str(random.randint(-20, 30)) + "; 90; 1013.3");
+#update_meteo_data("30.0; 60; " + str(random.randint(-20, 30)) + "; 90; 1013.3");
 
+# Based on:
+# Thomas Varnish (https://github.com/tvarnish), (https://www.instructables.com/member/Tango172)
+# Written for my Instructable - "How to use MQTT with the Raspberry Pi and ESP8266"
+
+
+mqtt_username = "meteo"
+mqtt_password = "meteo1234"
+mqtt_topic = "meteo"
+#mqtt_broker_ip = "meteo"
+mqtt_broker_ip = "192.168.0.8"
+
+client = mqtt.Client()
+# Set the username and password for the MQTT client
+client.username_pw_set(mqtt_username, mqtt_password)
+
+# Event handlers
+def on_connect(client, self, userdata, rc):
+    # rc is the error code returned when connecting to the broker
+    print "Connected!", str(rc)
+
+    # Once the client has connected to the broker, subscribe to the topic
+    client.subscribe(mqtt_topic, 0)
+
+def on_message(client, userdata, msg):
+    #print "\n----------------\nTopic: ", msg.topic + "\nMessage: " + str(msg.payload)
+    print "\nMessage: " + str(msg.payload)
+    update_meteo_data(msg.payload);
+
+
+client.on_connect = on_connect
+client.on_message = on_message
+
+client.connect(mqtt_broker_ip, 1883)
+
+# Once we have told the client to connect, let the client object run itself
+client.loop_forever()
+client.disconnect()
