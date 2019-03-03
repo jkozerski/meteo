@@ -1,0 +1,6 @@
+rm nohup.out && nohup stdbuf -oL python ./update_meteo.py 2>&1 &
+echo $! > nohup.pid && cat nohup.pid
+
+# autostart:
+sudo cp meteo.sh /etc/init.d/meteo.sh
+sudo ln -s /etc/init.d/meteo.sh /etc/rc2.d/S99meteo
