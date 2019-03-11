@@ -3,4 +3,6 @@ echo $! > nohup.pid && cat nohup.pid
 
 # autostart:
 sudo cp meteo.sh /etc/init.d/meteo.sh
+sudo chown pi /etc/init.d/meteo.sh
+chgrp pi /etc/init.d/meteo.sh
 sudo ln -s /etc/init.d/meteo.sh /etc/rc2.d/S99meteo

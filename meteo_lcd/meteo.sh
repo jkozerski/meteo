@@ -1,25 +1,27 @@
 #!/bin/bash
  
 ### BEGIN INIT INFO
+# Provides:          update_meteo
+# Required-Start:    $remote_fs $syslog
+# Required-Stop:     $remote_fs $syslog
 # Default-Start:     2 3 4 5
 # Default-Stop:      0 1 6  
-# Short-Description: Start/stop foo
+# Short-Description: Start/stop update_meteo script
 ### END INIT INFO
  
 dir=/home/pi/meteo
 user=pi
-#config=/home/foo/thin.yml
  
 case "$1" in
  
     'start')
         cd $dir
-        sudo -u $user rm nohup.out 2>/dev/null ; nohup stdbuf -oL python ./update_meteo.py 2>&1 & echo $! > nohup.pid
+        nohup stdbuf -oL python ./update_meteo.py > nohup.out 2>&1 & echo $! > nohup.pid
         ;;
  
     'stop')
         cd $dir
-        sudo -u $user kill -9 $(cat nohup.pid)
+        kill $(cat nohup.pid)
         ;;
  
     *)
