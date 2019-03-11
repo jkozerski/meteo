@@ -15,6 +15,7 @@ from shutil import move
 from os import remove
 from math import sqrt, floor
 import datetime # datetime and timedelta structures
+import time
 
 # Mosquito (data passing/sharing)
 import paho.mqtt.client as mqtt
@@ -30,12 +31,10 @@ import numpy as np
 from matplotlib.ticker import MultipleLocator
 
 # for testing purpose
-import random
-import time
+#import random
 
 # choose working dir
 working_dir = "/var/www/html/"
-#working_dir = "/home/januszk/workspace/priv/meteo/meteo_lcd/"
 
 www_meteo_path     = working_dir + "meteo.html"
 www_meteo_path_tmp = working_dir + "meteo.html_tmp"
@@ -52,9 +51,11 @@ pressure_diagram_file      = working_dir + "pressure.png"
 # And compare it with current time - if current time is too small then do nothing
 # Initialize it to some old time
 last_update_time = datetime.datetime.fromtimestamp(1284286794)
+last_log_time    = datetime.datetime.fromtimestamp(1284286794)
+last_plot_time   = datetime.datetime.fromtimestamp(1284286794)
 update_delay = datetime.timedelta(seconds = 60 * 1) # update delay in seconds -> 1 minute
-log_delay = 5 # update log every 5 webpage update (~5 min)
-log_delay_iter = 0 # iterator initialization
+log_delay    = datetime.timedelta(seconds = 60 * 3) # update delay in seconds -> 3 minute
+plot_delay   = datetime.timedelta(seconds = 60 * 10) # update delay in seconds -> 1 minute
 
 
 template_temp_out_begin      = "<!-- TEMP_OUT -->"
@@ -120,28 +121,64 @@ def getDateTimeFromISO8601String(s):
     return d
 
 # draw a plot from the data into a html file
-def generate_plot(data, filename):
-	#plotly.offline.plot(data, show_link=True, link_text='Export to plot.ly', validate=True, output_type='file', include_plotlyjs=True, filename='temp_out.html', auto_open=False, image=None, image_filename='plot_image', image_width=800, image_height=600, config=None)
-	plotly.offline.plot(data, show_link=False, link_text='Export to plot.ly', validate=False, output_type='file', include_plotlyjs=True, filename=working_dir+filename, auto_open=False, image=None, image_filename='plot_image', image_width=600, image_height=800, config=None)
+#def generate_plot(data, filename):
+#	plotly.offline.plot(data, show_link=False, link_text='Export to plot.ly', validate=False, output_type='file', include_plotlyjs=True, filename=working_dir+filename, auto_open=False, image=None, image_filename='plot_image', image_width=600, image_height=800, config=None)
+
+def plot_set_ax_fig (time, data, data_len, plot_type, ylabel, title, major_locator, minor_locator, file_name):
+
+    # This keeps chart nice-looking
+    ratio = 0.25
+    plot_size_inches = 20
+
+    fig, ax = plt.subplots()
+
+    fig.set_size_inches(plot_size_inches, plot_size_inches)
+
+    # Plot data:
+    ax.plot_date(time, data, plot_type)
+    ax.set_xlim(time[0], time[data_len])
+    ax.set(xlabel='', ylabel=ylabel, title=title)
+    ax.grid()
+
+    ax.xaxis.set_major_locator(matplotlib.dates.HourLocator(byhour=None, interval=3))
+    ax.xaxis.set_minor_locator(matplotlib.dates.HourLocator())
+    ax.xaxis.set_major_formatter(matplotlib.dates.DateFormatter("%m-%d %H:%M"))
+
+    ax.yaxis.set_major_locator(MultipleLocator(major_locator))
+    ax.yaxis.set_minor_locator(MultipleLocator(minor_locator))
+    ax.tick_params(labeltop=False, labelright=True)
+
+    plt.gcf().autofmt_xdate()
+
+    xmin, xmax = ax.get_xlim()
+    ymin, ymax = ax.get_ylim()
+    #print((xmax-xmin)/(ymax-ymin))
+    ax.set_aspect(abs((xmax-xmin)/(ymax-ymin))*ratio) #, adjustable='box-forced')
+
+    fig.savefig(file_name, bbox_inches='tight')
+    plt.close()
+
 
 # Draw a plot
 def draw_plot():
-	# Open log file
-	lf = open(log_file_path, "r");
-	# Calculates number lines in log file
+        # Open log file
+        lf = open(log_file_path, "r");
+        # Calculates number lines in log file
         num_lines = sum(1 for line in lf)
         lf.seek(0)
 
-	# We want to use only a few last lines (chart of last few hours/days)
-        values_count = 800 # 800 - aprox. 3 full days
-        lines_to_skip = num_lines - values_count
+        # Current time
+        current_time = datetime.datetime.now()
+        plot_begin_time = current_time - datetime.timedelta(days = 3, hours = 3)
 
-	# This keeps chart nice-looking
-	ratio = 0.25;
-
-	# Helpers
-        i = 0;
-        j = 0;
+        # Helpers
+        j = 0
+        values_count = 0
+        lines_to_skip = num_lines - 2500
+        # This much entries should be more than 3 days and 3 hours of logs.
+        # This will cause that generating plot will take less time
+        if lines_to_skip < 0:
+            lines_to_skip = 0;
 
 	# Use every x (e.g. every second, or every third) value - this makes chart more 'smooth'
         every_x = 1;
@@ -153,19 +190,22 @@ def draw_plot():
         p_out = []; # pressure for plot
         # From each line of log file create a pairs of meteo data (time, value)
         for line in lf:
-            i += 1
-            j += 1
-            if i < lines_to_skip:
+            if lines_to_skip > 0:
+                lines_to_skip -= 1
                 continue
+            j += 1
             if j >= every_x:
                 j = 0
             else:
                 continue
             # Parse line
             time, temp_in, humid_in, dew_in, temp_out, humid_out, dew_out, pressure = str(line).split(";")
+            time = getDateTimeFromISO8601String(time)
+            if time < plot_begin_time:
+                continue;
+            values_count += 1
             # Append time for time axis
-            #t.append(matplotlib.dates.date2num(getDateTimeFromISO8601String(time)))
-            t.append(getDateTimeFromISO8601String(time))
+            t.append(time)
             # Append meteo data for their axis
             t_out.append(float(temp_out))
             h_out.append(float(humid_out))
@@ -179,124 +219,41 @@ def draw_plot():
 
 	##############
 	# Temperature
-        fig, ax = plt.subplots()
-        #ax.set_aspect(0.05)
-        #ax.set_aspect(0.04)
-        fig.set_size_inches(20, 20)
-        ax.plot_date(t, t_out, 'b-')
-
-	ax.set_xlim(t[0], t[values_count-1])
-        ax.set(xlabel='', ylabel='Temperatura [C] ',
-               title='Wykres temperatury zewnetrznej')
-        ax.grid()
-
-        ax.yaxis.set_minor_locator(MultipleLocator(0.1))
-        ax.yaxis.set_major_locator(MultipleLocator(1))
-        ax.xaxis.set_major_locator(matplotlib.dates.HourLocator(byhour=None, interval=3))
-        ax.xaxis.set_minor_locator(matplotlib.dates.HourLocator())
-        ax.xaxis.set_major_formatter(matplotlib.dates.DateFormatter("%m-%d %H:%M"))
-        #ax.yaxis.set_major_formatter(majorFormatter)
-        ax.tick_params(labeltop=False, labelright=True)
-
-        plt.gcf().autofmt_xdate()
-
-        xmin, xmax = ax.get_xlim()
-        ymin, ymax = ax.get_ylim()
-        #print((xmax-xmin)/(ymax-ymin))
-        ax.set_aspect(abs((xmax-xmin)/(ymax-ymin))*ratio) #, adjustable='box-forced')
-
-        #fig.savefig("test.png", dpi=200)
-        fig.savefig(temp_out_diagram_file, bbox_inches='tight')
-        plt.close()
+        plot_set_ax_fig(t, t_out, values_count-1, 'r-', 'Temperatura [C]', 'Wykres temperatury zewnetrznej', 1, 0.1, temp_out_diagram_file)
 
 
 	##############
 	# Humidity
-        fig, ax = plt.subplots()
-        ax.set_aspect(0.04)
-        fig.set_size_inches(20, 20)
-	ax.plot_date(t, h_out, 'b-')
-
-	ax.set_xlim(t[0], t[values_count-1])
-        ax.set(xlabel='', ylabel='Wilgotnosc wzgledna [%] ',
-               title='Wykres wilgotnosci wzglednej')
-        ax.grid()
-
-        ax.yaxis.set_minor_locator(MultipleLocator(1))
-        ax.yaxis.set_major_locator(MultipleLocator(5))
-        ax.xaxis.set_major_locator(matplotlib.dates.HourLocator(byhour=None, interval=3))
-        ax.xaxis.set_minor_locator(matplotlib.dates.HourLocator())
-        ax.xaxis.set_major_formatter(matplotlib.dates.DateFormatter("%m-%d %H:%M"))
-        ax.tick_params(labeltop=False, labelright=True)
-
-        plt.gcf().autofmt_xdate()
-
-        xmin, xmax = ax.get_xlim()
-        ymin, ymax = ax.get_ylim()
-        ax.set_aspect(abs((xmax-xmin)/(ymax-ymin))*ratio)
-
-        fig.savefig(humid_out_diagram_file, bbox_inches='tight')
-        plt.close()
+        plot_set_ax_fig(t, h_out, values_count-1, 'g-', 'Wilgotnosc wzgledna [%]', 'Wykres wilgotnosci wzglednej', 5, 1, humid_out_diagram_file)
 
 
-	##############
-	# Dew point
-        fig, ax = plt.subplots()
-        ax.set_aspect(0.04)
-        fig.set_size_inches(20, 20)
-	ax.plot_date(t, d_out, 'b-')
-
-	ax.set_xlim(t[0], t[values_count-1])
-        ax.set(xlabel='', ylabel='Temp. punktu rosy [C] ',
-               title='Wykres temperatury punktu rosy')
-        ax.grid()
-
-        ax.yaxis.set_minor_locator(MultipleLocator(1))
-        ax.yaxis.set_major_locator(MultipleLocator(1))
-        ax.xaxis.set_major_locator(matplotlib.dates.HourLocator(byhour=None, interval=3))
-        ax.xaxis.set_minor_locator(matplotlib.dates.HourLocator())
-        ax.xaxis.set_major_formatter(matplotlib.dates.DateFormatter("%m-%d %H:%M"))
-        ax.tick_params(labeltop=False, labelright=True)
-
-        plt.gcf().autofmt_xdate()
-
-        xmin, xmax = ax.get_xlim()
-        ymin, ymax = ax.get_ylim()
-        ax.set_aspect(abs((xmax-xmin)/(ymax-ymin))*ratio)
-
-        fig.savefig(dew_point_out_diagram_file, bbox_inches='tight')
-        plt.close()
+        ##############
+        # Dew point
+        plot_set_ax_fig(t, d_out, values_count-1, 'b-', 'Temp. punktu rosy [C]', 'Wykres temperatury punktu rosy', 1, 1, dew_point_out_diagram_file)
 
 
-	##############
-	# Pressure
-        fig, ax = plt.subplots()
-        ax.set_aspect(0.04)
-        fig.set_size_inches(20, 20)
-	ax.plot_date(t, p_out, 'b-')
-
-	ax.set_xlim(t[0], t[values_count-1])
-        ax.set(xlabel='', ylabel='Cisnienie atm. [hPa]',
-               title='Wykres cisnienia atmosferycznego')
-        ax.grid()
-
-        ax.yaxis.set_minor_locator(MultipleLocator(1))
-        ax.yaxis.set_major_locator(MultipleLocator(2))
-        ax.xaxis.set_major_locator(matplotlib.dates.HourLocator(byhour=None, interval=3))
-        ax.xaxis.set_minor_locator(matplotlib.dates.HourLocator())
-        ax.xaxis.set_major_formatter(matplotlib.dates.DateFormatter("%m-%d %H:%M"))
-        ax.tick_params(labeltop=False, labelright=True)
-
-        plt.gcf().autofmt_xdate()
-
-        xmin, xmax = ax.get_xlim()
-        ymin, ymax = ax.get_ylim()
-        ax.set_aspect(abs((xmax-xmin)/(ymax-ymin))*ratio)
-
-        fig.savefig(pressure_diagram_file, bbox_inches='tight')
-        plt.close()
+        ##############
+        # Pressure
+        plot_set_ax_fig(t, p_out, values_count-1, 'm-', 'Cisnienie atm. [hPa]', 'Wykres cisnienia atmosferycznego', 2, 1, pressure_diagram_file)
 
         return
+
+
+# Get last updatate time from log file
+def get_last_update_time_from_log():
+        # Open log file
+	lf = open(log_file_path, "r");
+	for line in lf:
+	    pass
+	last = line
+	lf.close()
+	try:
+		time, temp_in, humid_in, dew_in, temp_out, humid_out, dew_out, pressure = str(line).split(";")
+		print ("Last update time (from log) set to: " + time)
+	        return getDateTimeFromISO8601String(time)
+	except Exception as e:
+		print("Cannot read last update time from log: " + str(e))
+	return datetime.datetime.fromtimestamp(1284286794)
 
 
 # Update web data:
@@ -319,21 +276,22 @@ def update_meteo_data(data):
         pressure = float(pressure) / 100.0
 
 	# Get current time
-	last_update = datetime.datetime.now()
+	current_time = datetime.datetime.now()
 	# Reset microsecond in current time to 0 - we don't want to keep them
-	last_update = last_update.replace(microsecond=0)
+	current_time = current_time.replace(microsecond=0)
 	
 	global last_update_time
-	global log_delay_iter
+	global last_log_time
+	global last_plot_time
 	# if now() - last_update_time < update_delay - then do nothing
-	if last_update - last_update_time < update_delay:
+	if current_time - last_update_time < update_delay:
 		# do nothing
 		#print("No need to update")
 		return
 	
 	print("Web update")
 	# save last update time
-	last_update_time = last_update;
+	last_update_time = current_time;
 	
 	# Open html (web page) file with meteo data
 	old_file = open(www_meteo_path, "r")
@@ -362,7 +320,7 @@ def update_meteo_data(data):
 		new_line = re.sub(template_humid_in,      template_humid_in_begin      + str(humid_in)  + template_humid_in_end,      new_line)
 		new_line = re.sub(template_dew_point_in,  template_dew_point_in_begin  + str(dew_in)    + template_dew_point_in_end,  new_line)
 		# last update:
-		new_line = re.sub(template_last_update,   template_last_update_begin + last_update.isoformat(' ') + template_last_update_end, new_line)
+		new_line = re.sub(template_last_update,   template_last_update_begin + current_time.isoformat(' ') + template_last_update_end, new_line)
 		# write to file:
 		new_file.write(new_line.encode("utf-8"))
 		#new_file.write(new_line) # use this for Python 3.x
@@ -376,20 +334,20 @@ def update_meteo_data(data):
 	move(www_meteo_path_tmp, www_meteo_path)
 
 	# Save data in log file (we can use to draw a plot)
-	if log_delay_iter <= 0:
-                log_delay_iter = log_delay;
+	if current_time >= last_log_time + log_delay:
+		last_log_time = current_time
 		# put data into log file
-		print("Update log")
-		log_to_file(temp_in, humid_in, dew_in, temp_out, humid_out, dew_out, pressure);
+                print("Update log")
+                log_to_file(temp_in, humid_in, dew_in, temp_out, humid_out, dew_out, pressure);
+
+	# Drawing a plot
+	if current_time >= last_plot_time + plot_delay:
+                last_plot_time = current_time
+		start = time.time()
 		print("Draw a plot")
 		draw_plot()
-		print("Drawing done!")
-        log_delay_iter -= 1;
-
-
-	# Draw a plot
-        # do not draw it - generating and displaying it costs too much CPU
-	# draw_plot()
+		end = time.time()
+		print("Drawing done! (in " + str(int(end - start)) + "s)")
 
 # Main program
 #update_meteo_data("30.0; 60; " + str(random.randint(-20, 30)) + "; 90; 1013.3");
@@ -422,6 +380,10 @@ def on_message(client, userdata, msg):
     print "\nMessage: " + str(msg.payload)
     update_meteo_data(msg.payload);
 
+# Check last update and log time from log file
+last_update_time = get_last_update_time_from_log()
+last_log_time    = last_update_time
+last_plot_time   = last_update_time
 
 client.on_connect = on_connect
 client.on_message = on_message
