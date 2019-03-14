@@ -1,13 +1,21 @@
 #!/usr/bin/env python2.7
 # -*- coding: utf-8 -*-
 
+# Author:
+# Janusz Kozerski (https://github.com/jkozerski)
+
 # install:
 # pip install python-dateutil
-# for diagrams (this seems to be too "heavy for raspberry"):
-# pip install plotly
-
-# or for other diagrams:
+#
+# for diagrams install:
 # sudo python -m pip --no-cache-dir install -U matplotlib
+#
+# for database install:
+# sqlite3 (apt-get install sqlite3)
+#
+#
+# or for other diagrams (this seems to be too "heavy" for raspberry):
+# pip install plotly
 
 
 import re #regular expression
@@ -20,26 +28,28 @@ import time
 # Mosquito (data passing/sharing)
 import paho.mqtt.client as mqtt
 
+# Sqlite3 database
+import sqlite3
+
 # Needed for drawing a plot
 import dateutil.parser
-#import plotly
-#import plotly.plotly as py
-#import plotly.graph_objs as go
 import matplotlib
 import matplotlib.pyplot as plt
-import numpy as np
+#import numpy as np
 from matplotlib.ticker import MultipleLocator
 
-# for testing purpose
-#import random
+##############################################################################################################
+### Needed defines & constants
 
 # choose working dir
 working_dir = "/var/www/html/"
+data_dir    = "/home/pi/meteo/"
 
 www_meteo_path     = working_dir + "meteo.html"
 www_meteo_path_tmp = working_dir + "meteo.html_tmp"
 
 log_file_path = working_dir + "meteo.log"
+db_path       = data_dir + "meteo.db"
 
 # Diagiam file names
 temp_out_diagram_file      = working_dir + "temp_out.png"
@@ -87,6 +97,9 @@ template_humid_in      = template_humid_in_begin      + val_regexp + template_hu
 template_dew_point_in  = template_dew_point_in_begin  + val_regexp + template_dew_point_in_end
 template_last_update   = template_last_update_begin   + val_regexp + template_last_update_end
 
+##############################################################################################################
+### Helpers functions
+
 # Returns outside values: temp_out, humid_out, dew_point_out
 def get_meteo_data_out():
 	return 20.4, 55, 12, 
@@ -120,9 +133,100 @@ def getDateTimeFromISO8601String(s):
     d = dateutil.parser.parse(s)
     return d
 
-# draw a plot from the data into a html file
-#def generate_plot(data, filename):
-#	plotly.offline.plot(data, show_link=False, link_text='Export to plot.ly', validate=False, output_type='file', include_plotlyjs=True, filename=working_dir+filename, auto_open=False, image=None, image_filename='plot_image', image_width=600, image_height=800, config=None)
+
+##############################################################################################################
+### Database
+
+# Creating table in database
+def create_db ():
+    conn = sqlite3.connect(db_path)
+    c = conn.cursor()
+
+    sql = "CREATE TABLE IF NOT EXISTS log (\n\
+id INTEGER PRIMARY KEY ASC,\n\
+time INT NOT NULL,\n\
+temp REAL,\n\
+humid INT,\n\
+dew_point INT,\n\
+pressure REAL,\n\
+temp_in REAL,\n\
+humid_in INT,\n\
+dew_point_in INT)"
+
+    c.execute(sql)
+
+    conn.commit()
+    conn.close()
+
+
+def log_into_db (date_time, temp, humid, dew_point, pressure, temp_in, humid_in, dew_point_in):
+
+    conn = sqlite3.connect(db_path)
+    c = conn.cursor()
+
+    try:
+        int_time = int (time.mktime(date_time.timetuple()))
+
+        c.execute("INSERT INTO log (time, temp, humid, dew_point, pressure, temp_in, humid_in, dew_point_in) \
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)", (int_time, temp, humid, dew_point, pressure, temp_in, humid_in, dew_point_in))
+        conn.commit()
+    except Exception as e:
+        print("Error while insert log to database: " + str(e))
+
+    conn.close()
+
+
+# Get values from last days and hours
+def get_val_last_db(days, hours):
+
+    if days < 0 or days > 31:
+        return;
+    if hours < 0 or hours > 23:
+        return;
+
+    current_time = datetime.datetime.now()
+    begin_time = current_time - datetime.timedelta(days=days, hours=hours)
+
+    conn = sqlite3.connect(db_path)
+    c = conn.cursor()
+
+    c.execute("SELECT strftime('%s', (?))", (begin_time, ))
+    int_time_min = (c.fetchone())[0]
+    c.execute("SELECT strftime('%s', (?))", (current_time, ))
+    int_time_max = (c.fetchone())[0]
+
+    try:
+        c.execute("SELECT time, temp, humid, dew_point, pressure FROM log WHERE time >= ? AND time < ?", (int_time_min, int_time_max))
+        rows = c.fetchall()
+
+    except Exception as e:
+        print("Error while get_val_last from db: " + str(e))
+
+    conn.close()
+    return rows
+
+
+# Get last updatate time from db
+def get_last_update_time_from_db():
+
+    conn = sqlite3.connect(db_path)
+    c = conn.cursor()
+
+    try:
+        c.execute("SELECT time FROM log ORDER BY time DESC LIMIT 1")
+        row = c.fetchone()
+	ret = row[0]
+        print "Last update from db: " + str(ret) + " (" + str(datetime.datetime.fromtimestamp(ret)) + ")"
+    except Exception as e:
+	print("Cannot read last update time from db: " + str(e))
+        ret = 1284286794 # "2010-09-12T12:19:54" - just some random old time
+
+    conn.close()
+    return datetime.datetime.fromtimestamp(ret)
+
+
+##############################################################################################################
+### PLOT
 
 def plot_set_ax_fig (time, data, data_len, plot_type, ylabel, title, major_locator, minor_locator, file_name):
 
@@ -239,6 +343,53 @@ def draw_plot():
         return
 
 
+# Draw a plot using database
+def draw_plot_db():
+
+        t = []; # time axis for plot
+        t_out = []; # temp out for plot
+        h_out = []; # humid out for plot
+        d_out = []; # dew point for plot
+        p_out = []; # pressure for plot
+
+        rows = get_val_last_db(3, 3)  # 3 days, 3 hours
+        # From each row creates a pairs of meteo data (time, value)
+
+	values_count = len(rows)
+        # Row format: (time, temp, humid, dew_point, pressure)
+        for row in rows:
+            # Append time for time axis
+            t.append(datetime.datetime.fromtimestamp(row[0]))
+            # Append meteo data for their axis
+            t_out.append(row[1])
+            h_out.append(row[2])
+            d_out.append(row[3])
+            p_out.append(row[4])
+
+        # draw plots for outside values: temperature, humidity, dew piont, pressure
+
+	##############
+	# Temperature
+        plot_set_ax_fig(t, t_out, values_count-1, 'r-', 'Temperatura [C]', 'Wykres temperatury zewnetrznej', 1, 0.1, temp_out_diagram_file)
+
+
+	##############
+	# Humidity
+        plot_set_ax_fig(t, h_out, values_count-1, 'g-', 'Wilgotnosc wzgledna [%]', 'Wykres wilgotnosci wzglednej', 5, 1, humid_out_diagram_file)
+
+
+        ##############
+        # Dew point
+        plot_set_ax_fig(t, d_out, values_count-1, 'b-', 'Temp. punktu rosy [C]', 'Wykres temperatury punktu rosy', 1, 1, dew_point_out_diagram_file)
+
+
+        ##############
+        # Pressure
+        plot_set_ax_fig(t, p_out, values_count-1, 'm-', 'Cisnienie atm. [hPa]', 'Wykres cisnienia atmosferycznego', 2, 1, pressure_diagram_file)
+
+        return
+
+
 # Get last updatate time from log file
 def get_last_update_time_from_log():
         # Open log file
@@ -255,6 +406,10 @@ def get_last_update_time_from_log():
 		print("Cannot read last update time from log: " + str(e))
 	return datetime.datetime.fromtimestamp(1284286794)
 
+
+##############################################################################################################
+### Main update function
+### Updates: webpage, text file log, database, and plot
 
 # Update web data:
 # Meteo data comes to function as a parameters in order:
@@ -279,6 +434,7 @@ def update_meteo_data(data):
 	current_time = datetime.datetime.now()
 	# Reset microsecond in current time to 0 - we don't want to keep them
 	current_time = current_time.replace(microsecond=0)
+        print(current_time)
 	
 	global last_update_time
 	global last_log_time
@@ -338,29 +494,34 @@ def update_meteo_data(data):
 		last_log_time = current_time
 		# put data into log file
                 print("Update log")
-                log_to_file(temp_in, humid_in, dew_in, temp_out, humid_out, dew_out, pressure);
+                log_to_file(temp_in, humid_in, dew_in, temp_out, humid_out, dew_out, pressure)
+                log_into_db (current_time, temp_out, humid_out, dew_out, pressure, temp_in, humid_in, dew_in)
 
 	# Drawing a plot
 	if current_time >= last_plot_time + plot_delay:
                 last_plot_time = current_time
 		start = time.time()
-		print("Draw a plot")
-		draw_plot()
+		print("Draw a plot using db")
+		draw_plot_db()
 		end = time.time()
 		print("Drawing done! (in " + str(int(end - start)) + "s)")
 
-# Main program
-#update_meteo_data("30.0; 60; " + str(random.randint(-20, 30)) + "; 90; 1013.3");
 
+##############################################################################################################
+### Main program
+##############################################################################################################
 # Based on:
 # Thomas Varnish (https://github.com/tvarnish), (https://www.instructables.com/member/Tango172)
 # Written for my Instructable - "How to use MQTT with the Raspberry Pi and ESP8266"
 
+# Creating db - creates it only if it doesn't exist
+create_db()
+print "Database OK"
 
+# MQTT init
 mqtt_username = "meteo"
 mqtt_password = "meteo1234"
 mqtt_topic = "meteo"
-#mqtt_broker_ip = "meteo"
 mqtt_broker_ip = "192.168.0.8"
 
 client = mqtt.Client()
@@ -381,7 +542,8 @@ def on_message(client, userdata, msg):
     update_meteo_data(msg.payload);
 
 # Check last update and log time from log file
-last_update_time = get_last_update_time_from_log()
+last_update_time = get_last_update_time_from_db()
+#last_update_time = get_last_update_time_from_log()
 last_log_time    = last_update_time
 last_plot_time   = last_update_time
 
