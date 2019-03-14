@@ -10,11 +10,49 @@ Install:
 For Python 2.7:
 sudo apt-get install python-pip
 sudo pip install python-dateutil
-sudo pip install plotly
-sudo pip install plotly --upgrade
+# Now matplotlib is used for plot
+# Install matplotlib instead
+#sudo pip install plotly
+#sudo pip install plotly --upgrade
 
-For python 3.x:
+For python 3.x: (Not tested)
 sudo apt-get install python3-pip
 sudo pip3 install python-dateutil
-sudo pip3 install plotly
-sudo pip3 install plotly --upgrade
+#sudo pip3 install plotly
+#sudo pip3 install plotly --upgrade
+
+
+You also need in system:
+* mosquitto (for messages from arduino)
+* mosquitto-clients (for messages from arduino)
+* Apache (www server)
+* sqlite3 (database tools)
+* matplotlib
+
+################################
+
+How to run the system:
+1) Put all files from www/ to workdir of apache server (probably /var/www/html/).
+2) If this workdir differs from /var/www/html/ then change it in *.py scripts.
+3) Create your workdir (e.g.: /home/pi/meteo/).
+4) Put into the workdir all python scripts:
+   * update_meteo.py
+   * month_plot.py
+   * db_tools (it's a dir so do it recursive)
+     (project will work without it, but it may be useful)
+5) If your workdir differs from "/home/pi/meteo/" then change it in *.py scripts
+6) Setup autorun of the update script:
+    sudo cp meteo.sh /etc/init.d/meteo.sh
+    sudo chown pi /etc/init.d/meteo.sh
+    chgrp pi /etc/init.d/meteo.sh
+    sudo ln -s /etc/init.d/meteo.sh /etc/rc2.d/S99meteo
+7) run update script:
+    /etc/init.d/meteo.sh start
+8) In workdir you should see new files:
+    * meteo.db
+    * nohup.out
+    * nohup.pid
+9) check if you can see any messages in update script output:
+   tail -f nohup.out
+
+
