@@ -79,8 +79,8 @@ def get_val_month_db(month, year):
 def plot_set_ax_fig (today, time, data, data_len, plot_type, ylabel, title, major_locator, minor_locator, file_name):
 
     # This keeps chart nice-looking
-    ratio = 0.25
-    plot_size_inches = 28
+    ratio = 0.20
+    plot_size_inches = 40
 
     fig, ax = plt.subplots()
 
