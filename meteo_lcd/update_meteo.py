@@ -232,7 +232,7 @@ def plot_set_ax_fig (time, data, data_len, plot_type, ylabel, title, major_locat
 
     # This keeps chart nice-looking
     ratio = 0.25
-    plot_size_inches = 20
+    plot_size_inches = 22
 
     fig, ax = plt.subplots()
 
@@ -550,7 +550,16 @@ last_plot_time   = last_update_time
 client.on_connect = on_connect
 client.on_message = on_message
 
-client.connect(mqtt_broker_ip, 1883)
+while True:
+    try:
+        print("Try to connect to MQTT broker.")
+        client.connect(mqtt_broker_ip, 1883)
+    except Exception as e:
+        print("MQTT client connect failed: " + str(e))
+        time.sleep(5);
+        continue;
+    break;
+print("MQTT client connected")
 
 # Once we have told the client to connect, let the client object run itself
 client.loop_forever()
