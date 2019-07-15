@@ -1,8 +1,27 @@
-rm nohup.out && nohup stdbuf -oL python ./update_meteo.py 2>&1 &
-echo $! > nohup.pid && cat nohup.pid
+#rm nohup.out && nohup stdbuf -oL python ./update_meteo.py 2>&1 &
+#echo $! > nohup.pid && cat nohup.pid
 
-# autostart:
+# create two dirs:
+mkdir -p /var/www/html/hist
+mkdir -p /home/pi/meteo
+
+# all python scripts puts to meteo dir
+cp *.py /home/pi/meteo/
+# all html file to html dir
+cp www/* /var/www/html/
+
+# meteo.sh should be in /etc/init.d/
+# setup autostart:
+chmod 777 meteo.sh
 sudo cp meteo.sh /etc/init.d/meteo.sh
 sudo chown pi /etc/init.d/meteo.sh
 chgrp pi /etc/init.d/meteo.sh
 sudo ln -s /etc/init.d/meteo.sh /etc/rc2.d/S99meteo
+
+# then can do:
+sudo /etc/init.d/meteo.sh start
+sudo /etc/init.d/meteo.sh stop
+
+# add to crontab (crontab -e):
+5       3       1       *       *       python /home/pi/meteo/month_plot.py
+0       23      *       *       *       python /home/pi/meteo/daily_plot.py
