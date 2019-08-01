@@ -449,10 +449,15 @@ def update_meteo_data(data):
 	# save last update time
 	last_update_time = current_time;
 	
-	# Open html (web page) file with meteo data
-	old_file = open(www_meteo_path, "r")
-	# Open temporary html file
-	new_file = open(www_meteo_path_tmp, "w")
+	# Open html template file (web page) 
+	tmp_file = open(www_meteo_path_tmp, "r")
+	# Remove old file
+	try:
+	        remove(www_meteo_path)
+	except Exception as e:
+		print("Skip removing file: " + str(e))
+	# Open (create) new html file
+	new_file = open(www_meteo_path, "w")
 
 	# Meteo data comes to function as a parameters in order:
 	# temp in, humid in, temp_out, humid out, pressure
@@ -463,7 +468,7 @@ def update_meteo_data(data):
 	dew_in  = get_dew_point(temp_in, humid_in);
 	
 	# In html file replace old data with new data using regular expressions an templates
-	for line in old_file:
+	for line in tmp_file:
 		# out:
 		line = line.decode("utf-8") # Remove this for Python 3.x
 		new_line = re.sub(template_temp_out,      template_temp_out_begin      + str(temp_out)  + template_temp_out_end,      line)
@@ -482,12 +487,8 @@ def update_meteo_data(data):
 		#new_file.write(new_line) # use this for Python 3.x
 	
 	# Close opened files
-	old_file.close()
+	tmp_file.close()
 	new_file.close()
-	# Remove old file
-	remove(www_meteo_path)
-	# Move new file (with new data) instead of old one
-	move(www_meteo_path_tmp, www_meteo_path)
 
 	# Save data in log file (we can use to draw a plot)
 	if current_time >= last_log_time + log_delay:
