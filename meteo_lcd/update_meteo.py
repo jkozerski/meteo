@@ -25,6 +25,11 @@ from math import sqrt, floor
 import datetime # datetime and timedelta structures
 import time
 
+# Changing user
+import os # os.getuid
+import pwd # pwd.getpwuid
+import grp # grp.getgrnam
+
 # Mosquito (data passing/sharing)
 import paho.mqtt.client as mqtt
 
@@ -50,6 +55,9 @@ www_meteo_path_tmp = working_dir + "meteo.html_tmp"
 
 log_file_path = working_dir + "meteo.log"
 db_path       = data_dir + "meteo.db"
+
+# Default user
+default_user = 'pi'
 
 # Diagiam file names
 temp_out_diagram_file      = working_dir + "temp_out.png"
@@ -96,6 +104,30 @@ template_temp_in       = template_temp_in_begin       + val_regexp + template_te
 template_humid_in      = template_humid_in_begin      + val_regexp + template_humid_in_end
 template_dew_point_in  = template_dew_point_in_begin  + val_regexp + template_dew_point_in_end
 template_last_update   = template_last_update_begin   + val_regexp + template_last_update_end
+
+
+##############################################################################################################
+### Change running user to default user ('pi')
+# Needed when script is running as root on system startup from /etc/init.d/
+
+def change_user():
+    user = pwd.getpwuid( os.getuid() ).pw_name
+    if user == default_user :
+        print "User OK - '" + user + "'."
+        return
+    else:
+        print "Bad user '" + user + "', changing to '" + default_user + "'."
+        try:
+            # Remove group privileges
+            os.setgroups([])
+            # Try setting the new uid/gid
+            os.setgid(grp.getgrnam(default_user).gr_gid)
+            os.setuid(pwd.getpwnam(default_user).pw_uid)
+        except Exception as e:
+            print("Error while changing user." + str(e))
+    print "User changed from '" + user + "' to '" + default_user + "'."
+
+
 
 ##############################################################################################################
 ### Helpers functions
@@ -514,6 +546,8 @@ def update_meteo_data(data):
 # Based on:
 # Thomas Varnish (https://github.com/tvarnish), (https://www.instructables.com/member/Tango172)
 # Written for my Instructable - "How to use MQTT with the Raspberry Pi and ESP8266"
+
+change_user()
 
 # Creating db - creates it only if it doesn't exist
 create_db()
