@@ -1,4 +1,5 @@
-<html lang="pl">
+<!DOCTYPE html>
+<html lang="pl-PL">
 <meta charset="utf-8">
 
 <table style="margin: 20 auto; font-size:38pt" cellspacing="0" border="1" align="left">
@@ -9,10 +10,10 @@
 	<td style="background:#44dd44" align="left">Wilgotność:</td> <td style="background:#55ee55" align="right"><!-- HUMID_OUT -->97<!-- /HUMID_OUT -->% RH</td>
 </tr>
 <tr>
-	<td style="background:#ee77ff" align="left">Ciśnienie:</td> <td style="background:#ff88ff"align="right"><!-- PRESS -->1000.08<!-- /PRESS --> hPa</td>
+	<td style="background:#ee77ff" align="left">Ciśnienie:</td> <td style="background:#ff88ff" align="right"><!-- PRESS -->1000.08<!-- /PRESS --> hPa</td>
 </tr>
 <tr>
-	<td style="background:#7799ff" align="left">Punkt rosy:</td> <td style="background:#88aaff"align="right"><!-- DEW_OUT -->23.0<!-- /DEW_OUT -->°C</td>
+	<td style="background:#7799ff" align="left">Punkt rosy:</td> <td style="background:#88aaff" align="right"><!-- DEW_OUT -->23.0<!-- /DEW_OUT -->°C</td>
 </tr>
 
 <tr style="border:none">
