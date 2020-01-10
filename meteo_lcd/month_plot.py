@@ -51,7 +51,10 @@ def get_val_month_db(month, year):
     c = conn.cursor()
 
     str_time_min = str(year).zfill(4) + "-" + str(month).zfill(2)   + "-01T00:00:00"
-    str_time_max = str(year).zfill(4) + "-" + str(month+1).zfill(2) + "-01T00:00:00"
+    if month == 12:
+        str_time_max = str(year+1).zfill(4) + "-" + str(1).zfill(2) + "-01T00:00:00"
+    else:
+        str_time_max = str(year).zfill(4) + "-" + str(month+1).zfill(2) + "-01T00:00:00"
 
     #c.execute("SELECT strftime('%s', (?))", (str_time_min, ))
     #int_time_min = (c.fetchone())[0]
@@ -76,7 +79,7 @@ def get_val_month_db(month, year):
 
 
 
-def plot_set_ax_fig (today, time, data, data_len, plot_type, ylabel, title, major_locator, minor_locator, file_name):
+def plot_set_ax_fig (date, time, data, data_len, plot_type, ylabel, title, major_locator, minor_locator, file_name):
 
     # This keeps chart nice-looking
     ratio = 0.20
@@ -89,7 +92,7 @@ def plot_set_ax_fig (today, time, data, data_len, plot_type, ylabel, title, majo
     # Plot data:
     ax.plot_date(time, data, plot_type)
     ax.set_xlim(time[0], time[data_len])
-    ax.set(xlabel='', ylabel=ylabel, title=title + " " + str(today.month-1) + "." + str(today.year))
+    ax.set(xlabel='', ylabel=ylabel, title=title + " " + str(date.month) + "." + str(date.year))
     ax.grid()
 
     ax.xaxis.set_major_locator(matplotlib.dates.HourLocator(byhour=(0)))
@@ -107,7 +110,7 @@ def plot_set_ax_fig (today, time, data, data_len, plot_type, ylabel, title, majo
     #print((xmax-xmin)/(ymax-ymin))
     ax.set_aspect(abs((xmax-xmin)/(ymax-ymin))*ratio) #, adjustable='box-forced')
 
-    fig.savefig(hist_dir + str(today.year) + "." + str(today.month-1) + "." + file_name, bbox_inches='tight')
+    fig.savefig(hist_dir + str(date.year) + "." + str(date.month) + "." + file_name, bbox_inches='tight')
     plt.close()
 
 # Draw a plot
@@ -124,7 +127,10 @@ def draw_plot_month():
 
     # Today
     today = datetime.datetime.today()
-    plot_date_begin = datetime.datetime(today.year, today.month-1, 1)
+    if today.month == 1:
+        plot_date_begin = datetime.datetime(today.year-1, 12, 1)
+    else:
+        plot_date_begin = datetime.datetime(today.year, today.month-1, 1)
     plot_date_end   = datetime.datetime(today.year, today.month, 1)
 
     # Helpers
@@ -199,8 +205,10 @@ def draw_plot_month_db():
 
     # Today
     today = datetime.datetime.today()
-    plot_date_begin = datetime.datetime(today.year, today.month-1, 1)
-    plot_date_end   = datetime.datetime(today.year, today.month, 1)
+    if today.month == 1:
+        plot_date_begin = datetime.datetime(today.year-1, 12, 1)
+    else:
+        plot_date_begin = datetime.datetime(today.year, today.month-1, 1)
 
     t = []; # time axis for plot
     t_out = []; # temp out for plot
@@ -208,7 +216,7 @@ def draw_plot_month_db():
     d_out = []; # dew point for plot
     p_out = []; # pressure for plot
 
-    rows = get_val_month_db(today.month-1, today.year)  # month, and year
+    rows = get_val_month_db(plot_date_begin.month, plot_date_begin.year)  # month, and year
     # From each row creates a pairs of meteo data (time, value)
 
     values_count = len(rows)
@@ -226,19 +234,19 @@ def draw_plot_month_db():
 
     ##############
     # Temperature
-    plot_set_ax_fig(today, t, t_out, values_count-1, 'r-', 'Temperatura [C]', 'Wykres temperatury zewnetrznej', 1, 0.5, temp_out_diagram_file)
+    plot_set_ax_fig(plot_date_begin, t, t_out, values_count-1, 'r-', 'Temperatura [C]', 'Wykres temperatury zewnetrznej', 1, 0.5, temp_out_diagram_file)
     
     ##############
     # Humidity
-    plot_set_ax_fig(today, t, h_out, values_count-1, 'g-', 'Wilgotnosc wzgledna [%]', 'Wykres wilgotnosci wzglednej', 5, 1, humid_out_diagram_file)
+    plot_set_ax_fig(plot_date_begin, t, h_out, values_count-1, 'g-', 'Wilgotnosc wzgledna [%]', 'Wykres wilgotnosci wzglednej', 5, 1, humid_out_diagram_file)
 
     ##############
     # Dew point
-    plot_set_ax_fig(today, t, d_out, values_count-1, 'b-', 'Temp. punktu rosy [C]', 'Wykres temperatury punktu rosy', 1, 1, dew_point_out_diagram_file)
+    plot_set_ax_fig(plot_date_begin, t, d_out, values_count-1, 'b-', 'Temp. punktu rosy [C]', 'Wykres temperatury punktu rosy', 1, 1, dew_point_out_diagram_file)
 
     ##############
     # Pressure
-    plot_set_ax_fig(today, t, p_out, values_count-1, 'm-', 'Cisnienie atm. [hPa]', 'Wykres cisnienia atmosferycznego', 2, 1, pressure_diagram_file)
+    plot_set_ax_fig(plot_date_begin, t, p_out, values_count-1, 'm-', 'Cisnienie atm. [hPa]', 'Wykres cisnienia atmosferycznego', 2, 1, pressure_diagram_file)
 
     return
 
